@@ -1,6 +1,9 @@
+{-# LANGUAGE TemplateHaskell #-}
+
+
 module Lib where
 
-import System.Random(StdGen, mkStdGen, next, uniform, setStdGen)
+import System.Random(StdGen, mkStdGen, next, uniform, setStdGen, Random (randomR))
 import Control.Monad.State.Lazy
 
 import qualified Control.Monad.State.Lazy as ST (get, put, runState, State)
@@ -22,7 +25,17 @@ data Player = Player
     playerId :: Int,
     cards :: [Card],
     choose :: [Card] -> Card -> Maybe Card
+    -- select :: [Card] -> Color
     }
+
+
+data GameState = GameState
+    {
+    deck :: [Card],
+    discardPile :: [Card],
+    randomGenerator :: StdGen
+    }
+
 
 instance Show Player where
     show pl = show (playerId pl) ++ ": ["++ intercalate ", " (map show (cards pl)) ++ "]"
@@ -30,23 +43,49 @@ instance Show Player where
 chooseFirstMatching :: [Card] -> Card -> Maybe Card
 chooseFirstMatching cards (Card color number) = case [Card col num | (Card col num) <- cards, col == color || num == number] of
     [] -> Nothing
-    (h : t) ->Just h
-
--- newtype GameState = GameState {cardGen :: StdGen}
-
--- generateCard :: 
+    (h : t) -> Just h
 
 drawCard :: IO Card
 drawCard = do
     gen <- getStdGen
     let next = uniform gen :: (Int, StdGen)
     setStdGen $ snd next
-    -- ans <- selectCard $ fst next
-    return $ selectCard $ fst next
-    -- print "valio"
-    -- (GameState (snd nxt), selectCard $ fst nxt)
-    -- where
-        -- nxt = uniform gen :: (Int, StdGen)
+    return $ decodeCard $ fst next
+
+drawCardFromGameState :: GameState -> (Card, GameState)
+drawCardFromGameState GameState{deck = [], discardPile = [], randomGenerator = rnd}  = drawCardFromGameState GameState{deck = tail cds, discardPile = [head cds], randomGenerator = newGen}
+    where (cds, newGen) = newDeck rnd
+drawCardFromGameState GameState{deck = [], discardPile = (h:t), randomGenerator = rnd} = drawCardFromGameState GameState{deck = cds, discardPile = [h], randomGenerator = newGen}
+    where (cds, newGen) = shuffle t rnd
+drawCardFromGameState GameState{deck = (h:t), discardPile = disPile, randomGenerator = rnd} = (h, GameState{deck = t, discardPile = disPile, randomGenerator = rnd})
+
+topCard :: GameState -> Card
+topCard gs = head $ discardPile gs
+
+remove :: Eq a => [a] -> a -> [a]
+remove [] _ = []
+remove (h:t) x = if x == h then t else h : remove t x
+
+newDeck :: StdGen -> ([Card], StdGen)
+newDeck = shuffle generateDeck
+
+elementById :: [a] -> Int -> Maybe a
+elementById [] num = Nothing
+elementById (h:t) 0 = Just h
+elementById (h:t) n = elementById t (n - 1)
+
+shuffle :: Eq a => [a] -> StdGen -> ([a], StdGen)
+shuffle [] rng = ([], rng)
+shuffle as rng = (selectedVal : aTail, finalGen)
+    where
+        (selectedId, newGen) = randomR (0, length as - 1) rng
+        selectedVal = case elementById as selectedId of
+            Nothing -> head as
+            Just val -> val
+        (aTail, finalGen) = shuffle (remove as selectedVal) newGen
+
+generateDeck :: [Card]
+generateDeck = map decodeCard ([0 .. 39] ++ [0 .. 39])
 
 generatePlayers1 :: [Player]
 generatePlayers1 = [Player{playerId = 0, cards = [], choose = chooseFirstMatching},
@@ -66,30 +105,45 @@ fillWithCards Player {playerId = i, choose = chs} = do
     newCards <- replicateM startingNumberOfCards drawCard
     return Player{playerId = i, cards = newCards, choose = chs}
 
-selectCard :: Int -> Card
-selectCard x
-    | x >= 40 = selectCard $ x `mod` 40
-    | otherwise = Card (selectColor $ x `div` 10) (x `mod` 10)
+fillWithCardsFromGameState :: Player -> GameState -> (Player, GameState)
+fillWithCardsFromGameState Player{playerId = i, choose = chs} gs = (Player{playerId = i, choose = chs, cards = cds}, newGs)
+    where (cds, newGs) = drawAllCards gs startingNumberOfCards
 
-selectColor :: Int -> Color
-selectColor 0 = Red
-selectColor 1 = Green
-selectColor 2 = Blue
-selectColor 3 = Yellow
-selectColor _ = Black
+drawAllCards :: GameState -> Int -> ([Card], GameState)
+drawAllCards gs 0 = ([], gs)
+drawAllCards gs n = (cd : remCds, newGs)
+    where
+        (cd, midGs) = drawCardFromGameState gs
+        (remCds, newGs) = drawAllCards midGs (n -1)
+
+decodeCard :: Int -> Card
+decodeCard x
+    | x >= 40 = decodeCard $ x `mod` 40
+    | otherwise = Card (decodeColor $ x `div` 10) (x `mod` 10)
+
+decodeColor :: Int -> Color
+decodeColor 0 = Red
+decodeColor 1 = Green
+decodeColor 2 = Blue
+decodeColor 3 = Yellow
+decodeColor _ = Black
 
 canPlace :: Card -> Card -> Bool
 canPlace (Card Black _) _ = True
 canPlace _ (Card Black _) = True
 canPlace (Card col1 num1) (Card col2 num2) = col1 == col2 || num1 == num2
 
-test :: [Int]
-test = [1, 2, 3, 1] \\ [1]
+canPlaceFromGameState :: Card -> GameState -> Bool
+canPlaceFromGameState cd gs = canPlace (topCard gs) cd
 
+-- makeMoveFromGameState :: Player -> GameState -> (Player, GameState)
+-- makeMoveFromGameState Player{playerId = playId, cards = cds, choose = chs} gs = if can
+
+--TODO reikia ne monadinio
 makeMove :: Player -> Card -> IO (Player, Card)
 makeMove Player{playerId = playId, cards = cds, choose = chs} topCard = do
     let card = chs cds topCard
     selectedCard <- maybe drawCard pure card
 
-    let newCards = if canPlace selectedCard topCard then if isJust card then cds \\ [selectedCard] else cds else selectedCard : cds 
+    let newCards = if canPlace selectedCard topCard then if isJust card then cds \\ [selectedCard] else cds else selectedCard : cds
     return (Player{playerId = playId, cards = newCards, choose = chs}, head ([selectedCard | canPlace selectedCard topCard] ++ [topCard]))

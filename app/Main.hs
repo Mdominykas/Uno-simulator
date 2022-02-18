@@ -1,4 +1,9 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Main where
+
+import Control.Lens hiding (element)
+import Control.Lens.TH
 
 import qualified Control.Monad.State.Lazy as ST (get, put, runState, State)
 
@@ -76,3 +81,21 @@ makeEveryTurn (h:t, c) = do
             where
                 remPlayers = fst $ fst rem
                 remCard = snd $ fst rem
+
+
+data Atom = Atom { _element :: String, _point :: Point } deriving(Show)
+
+data Point = Point { _x :: Double, _y :: Double } deriving (Show)
+
+$(makeLenses ''Atom)
+$(makeLenses ''Point)
+
+shiftAtomX :: Atom -> Atom
+shiftAtomX = over (point . x) (+ 1)
+
+data Molecule = Molecule {_atoms :: [Atom] } deriving (Show)
+
+$(makeLenses ''Molecule)
+
+shiftMoleculeX :: Molecule -> Molecule
+shiftMoleculeX = over (atoms. traverse . point . x) (+ 1)
