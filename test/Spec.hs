@@ -116,6 +116,5 @@ main = runTestTT $ TestList (testListChooseFirstMatching ++
                             [test_TopCardFromGameState_WhenThereIsCard] ++
                             testListRemove ++
                             testListElementById ++
-                            testListPlaceCardIfPossible
-                            )
-                            --testListMakeEveryTurn)
+                            testListPlaceCardIfPossible ++
+                            testListMakeEveryTurn)
