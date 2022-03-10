@@ -8,11 +8,14 @@ import Control.Lens.TH
 import qualified Control.Monad.State.Lazy as ST (get, put, runState, State)
 
 -- import System.Random
-import Control.Concurrent (newChan, Chan, readChan, writeChan, forkIO)
+-- import System.Random
+import Control.Concurrent (newChan, Chan, readChan, writeChan, forkIO, threadDelay)
 import Lib (Player(_cards), Card, generatePrimitivePlayers, numberOfPlayers, createStartingGameState, fillWithCardsFromGameState, GameState (GameState), makeMove, haveWon)
 import System.Random (getStdGen, mkStdGen)
 import Data.Maybe
 import Lib (makeEveryTurn)
+import Control.Monad (when)
+import Numeric (showFFloat)
 
 main :: IO ()
 main = do
@@ -21,12 +24,25 @@ main = do
     let winners = [0 | _ <- [1 .. numberOfPlayers]]
     findResults ch winners
 
+findPercentage as =  map ((/ cumSum) . fromIntegral) as
+    where cumSum = if sum as == 0 then 1 else fromIntegral $ sum as
+
+intsAsTableRow :: [Int] -> String
+intsAsTableRow [] = ""
+intsAsTableRow (h:t) = " | " ++ show h ++ intsAsTableRow t
+
+floatsAsPercentageInTableRow :: [Float] -> String
+floatsAsPercentageInTableRow [] = ""
+floatsAsPercentageInTableRow (h:t) = "| " ++ someVal ++ "% " ++ floatsAsPercentageInTableRow t
+    where
+        someVal = showFFloat (Just 2) (100 * h) ""
 
 findResults :: Chan Int -> [Int] -> IO ()
-findResults ch winners = do
+findResults ch oldWinners = do
     val <- readChan ch
-    print (incrementByIndex winners val)
-    findResults ch (incrementByIndex winners val)
+    let winners = incrementByIndex oldWinners val
+    when ((sum winners `mod` 1000) == 0) $ print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
+    findResults ch winners
 
 incrementByIndex :: (Eq t, Num t, Num a) => [a] -> t -> [a]
 incrementByIndex [] _ = []
@@ -41,6 +57,7 @@ playGame ch gameNum = do
     let (players, gameState) = foldl (\(oldPl, gs) player -> (fst (fillWithCardsFromGameState player gs) : oldPl, snd (fillWithCardsFromGameState player gs))) ([], initialGameState) noCardPlayers
     let ans = findWinner players gameState
     writeChan ch ans
+    threadDelay 10 -- to slow down game playing, since otherwise findResults lacks behind
     playGame ch (gameNum + 1)
 
 findWinner :: [Player] -> GameState -> Int
