@@ -8,94 +8,41 @@ import Control.Lens.TH
 import qualified Control.Monad.State.Lazy as ST (get, put, runState, State)
 
 -- import System.Random
-import Lib (generatePlayers1, fillWithCards, Player (playerId, cards), Card, drawCard, makeMove)
 import Control.Concurrent (newChan, Chan, readChan, writeChan, forkIO)
-
--- main :: IO ()
--- main = do
---     print "Hello, friends"
+import Lib (Player(_cards), Card, generatePrimitivePlayers, numberOfPlayers, createStartingGameState, fillWithCardsFromGameState, GameState (GameState), makeMove, haveWon)
+import System.Random (getStdGen, mkStdGen)
+import Data.Maybe
+import Lib (makeEveryTurn)
 
 main :: IO ()
 main = do
     ch <- newChan
-    forkIO $ playGame ch
-    let winners = [0, 0, 0, 0, 0, 0, 0, 0]
+    forkIO $ playGame ch 0
+    let winners = [0 | _ <- [1 .. numberOfPlayers]]
     findResults ch winners
-    -- x <- getStdGen
-    -- print (next x)
 
 
 findResults :: Chan Int -> [Int] -> IO ()
 findResults ch winners = do
     val <- readChan ch
-    print (addWin winners val)
-    findResults ch (addWin winners val)
+    print (incrementByIndex winners val)
+    findResults ch (incrementByIndex winners val)
 
-addWin :: (Eq t, Num t, Num a) => [a] -> t -> [a]
-addWin [] _ = []
-addWin (h : t) 0 = h + 1 : t
-addWin (h : t) val = h : addWin t (val - 1)
--- performExperiment1 :: IO ()
--- performExperiment1 = do
---     print ""
---     let winners = [0, 0, 0]
---     print ""
+incrementByIndex :: (Eq t, Num t, Num a) => [a] -> t -> [a]
+incrementByIndex [] _ = []
+incrementByIndex (h : t) 0 = h + 1 : t
+incrementByIndex (h : t) val = h : incrementByIndex t (val - 1)
 
-playGame :: Chan Int -> IO ()
-playGame ch = do
-    let noCardPlayers = generatePlayers1
-    players <- mapM fillWithCards noCardPlayers
-    firstCard <- drawCard
-
-    ans <- findWinner (players, firstCard)
-    -- print ans
+playGame :: Chan Int -> Int -> IO ()
+playGame ch gameNum = do
+    let stdGen = mkStdGen gameNum
+    let noCardPlayers = generatePrimitivePlayers numberOfPlayers
+    let initialGameState = createStartingGameState stdGen
+    let (players, gameState) = foldl (\(oldPl, gs) player -> (fst (fillWithCardsFromGameState player gs) : oldPl, snd (fillWithCardsFromGameState player gs))) ([], initialGameState) noCardPlayers
+    let ans = findWinner players gameState
     writeChan ch ans
-    playGame ch
+    playGame ch (gameNum + 1)
 
-findWinner :: ([Player], Card) -> IO Int
-findWinner cur = do
-    -- print "pradinis:"
-    -- print $ show $ fst cur
-    rez <- makeEveryTurn cur
-    -- print "galinis:"
-    -- print $ show rez
-    case snd rez of
-        Nothing -> findWinner $ fst rez
-        Just num -> return num
-
-makeEveryTurn :: ([Player], Card) -> IO (([Player], Card), Maybe Int)
-makeEveryTurn ([], c) = return (([], c), Nothing)
-makeEveryTurn (h:t, c) = do
-    -- print h
-    -- print "->"
-    -- print "starting position:"
-    -- print h
-    newHead <- makeMove h c
-    -- print "ending position:"
-    -- print newHead
-    -- print newHead
-    rem <- makeEveryTurn (t, snd newHead)
-    case cards $ fst newHead of
-        [] -> return (([], c), Just $ playerId $ fst newHead)
-        _ -> return ((fst newHead : remPlayers, remCard), snd rem)
-            where
-                remPlayers = fst $ fst rem
-                remCard = snd $ fst rem
-
-
-data Atom = Atom { _element :: String, _point :: Point } deriving(Show)
-
-data Point = Point { _x :: Double, _y :: Double } deriving (Show)
-
-$(makeLenses ''Atom)
-$(makeLenses ''Point)
-
-shiftAtomX :: Atom -> Atom
-shiftAtomX = over (point . x) (+ 1)
-
-data Molecule = Molecule {_atoms :: [Atom] } deriving (Show)
-
-$(makeLenses ''Molecule)
-
-shiftMoleculeX :: Molecule -> Molecule
-shiftMoleculeX = over (atoms. traverse . point . x) (+ 1)
+findWinner :: [Player] -> GameState -> Int
+findWinner playerList gs = fromMaybe (findWinner newPlayerList newGs) roundRes
+    where ((newPlayerList, newGs), roundRes) = makeEveryTurn playerList gs

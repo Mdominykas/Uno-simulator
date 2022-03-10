@@ -1,4 +1,4 @@
-name:                Uno-simulator
+name:                uno-simulator
 version:             0.1.0.0
 github:              "githubuser/Uno-simulator"
 license:             BSD3
@@ -24,13 +24,14 @@ dependencies:
 - random >= 1.2
 - mtl >= 2.2.2
 - lens
+- HUnit >= 1.6.0.0
 
 
 library:
   source-dirs: src
 
 executables:
-  Uno-simulator-exe:
+  uno-simulator-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -38,12 +39,12 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - Uno-simulator
+    - uno-simulator
     - random >= 1.2
     - mtl
 
 tests:
-  Uno-simulator-test:
+  uno-simulator-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -51,4 +52,5 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - Uno-simulator
+    - uno-simulator
+    - HUnit
