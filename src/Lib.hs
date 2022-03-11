@@ -109,7 +109,7 @@ startingNumberOfCards :: Int
 startingNumberOfCards = 7
 
 numberOfPlayers :: Int
-numberOfPlayers = 5
+numberOfPlayers = 8
 
 fillWithCardsFromGameState :: Player -> GameState -> (Player, GameState)
 fillWithCardsFromGameState Player{_playerId = i, _choose = chs} gs = (Player{_playerId = i, _choose = chs, _cards = cds}, newGs)
