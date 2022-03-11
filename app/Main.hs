@@ -48,10 +48,16 @@ incrementByIndex [] _ = []
 incrementByIndex (h : t) 0 = h + 1 : t
 incrementByIndex (h : t) val = h : incrementByIndex t (val - 1)
 
+rotate :: Int -> [a] -> [a]
+rotate _ [] = []
+rotate n xs
+    | n > length xs = rotate (n `mod` length xs) xs 
+    | otherwise = take (length xs) (drop n (cycle xs))
+
 playGame :: Chan Int -> Int -> IO ()
 playGame ch gameNum = do
     let stdGen = mkStdGen gameNum
-    let noCardPlayers = generatePrimitivePlayers numberOfPlayers
+    let noCardPlayers = rotate gameNum (generatePrimitivePlayers numberOfPlayers)
     let initialGameState = createStartingGameState stdGen
     let (players, gameState) = foldl (\(oldPl, gs) player -> (fst (fillWithCardsFromGameState player gs) : oldPl, snd (fillWithCardsFromGameState player gs))) ([], initialGameState) noCardPlayers
     let ans = findWinner players gameState

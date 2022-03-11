@@ -21,6 +21,8 @@ data Color = Red | Green | Blue | Yellow | Black
 data Card = Card Color Int
     deriving (Show, Eq)
 
+-- data SpecialCard = PlusTwo Color | SkipTurn Color | ChangeColor | PlusFour
+
 data Player = Player
     {
     _playerId :: Int,
@@ -101,7 +103,7 @@ generateDeck :: [Card]
 generateDeck = map decodeCard ([0 .. 39] ++ [0 .. 39])
 
 generatePrimitivePlayers :: Int -> [Player]
-generatePrimitivePlayers count = [Player{_playerId = id1, _cards = [], _choose = chooseFirstMatching} | id1 <- [1 .. count]]
+generatePrimitivePlayers count = [Player{_playerId = id1, _cards = [], _choose = chooseFirstMatching} | id1 <- [0 .. (count - 1)]]
 
 startingNumberOfCards :: Int
 startingNumberOfCards = 7
@@ -158,7 +160,7 @@ makeMove pl gs = if haveMadeMove then (newPl, newGs) else snd $ placeCardIfPossi
 
 makeEveryTurn :: [Player] -> GameState -> (([Player], GameState), Maybe Int)
 makeEveryTurn [] gs = (([], gs), Nothing)
-makeEveryTurn (h:t) gs = if haveWon newPl then ((newPl : t, newGs), Just 0) else  ((newPl : remPl, remGs), fmap (+1) remRes)
+makeEveryTurn (h:t) gs = if haveWon newPl then ((newPl : t, newGs), Just (view playerId newPl)) else  ((newPl : remPl, remGs), remRes)
     where
         (newPl, newGs) = makeMove h gs
         ((remPl, remGs), remRes) = makeEveryTurn t newGs
