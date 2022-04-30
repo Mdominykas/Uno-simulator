@@ -9,8 +9,10 @@ import qualified Control.Monad.State.Lazy as ST (get, put, runState, State)
 
 -- import System.Random
 import Control.Concurrent (newChan, Chan, readChan, writeChan, forkIO, threadDelay)
-import Lib (Player(_cards), generatePrimitivePlayers, numberOfPlayers, createStartingGameState, fillWithCardsFromGameState, GameState (GameState), makeMove, haveWon, findWinner)
+import Lib (generatePrimitivePlayers, numberOfPlayers, createStartingGameState, fillWithCardsFromGameState, GameState (GameState), makeMove, findWinner)
 import Cards(Card (..))
+import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId)
+
 
 import System.Random (getStdGen, mkStdGen)
 import Data.Maybe

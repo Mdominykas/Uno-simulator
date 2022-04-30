@@ -17,17 +17,11 @@ import Data.Maybe (isJust, isNothing, fromJust)
 import qualified Data.Bifunctor as BF
 
 import Cards(Color (..), Card (..), canPlace, cardColor, cardNumber)
+import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId)
+
 
 data AfterEffect = NoTurn | Draw Int
     deriving (Show, Eq)
-
-data Player = Player
-    {
-    _playerId :: Int,
-    _cards :: [Card],
-    _choose :: [Card] -> Card -> Maybe Card
-    -- select :: [Card] -> Color
-    }
 
 data GameState = GameState
     {
@@ -38,17 +32,10 @@ data GameState = GameState
     } deriving(Eq, Show)
 
 $(makeLenses ''GameState)
-$(makeLenses ''Player)
 
 -- alternatyva lenses naudojimui
 changeDeck :: GameState -> [Card] -> GameState
 changeDeck gs dc = gs {_deck = dc}
-
-instance Eq Player
-    where (==) pl1 pl2 = (view playerId pl1 == view playerId pl2) && (view cards pl1 == view cards pl2)
-
-instance Show Player where
-    show pl = show (_playerId pl) ++ ": ["++ intercalate ", " (map show (_cards pl)) ++ "]"
 
 chooseFirstMatching :: [Card] -> Card -> Maybe Card
 chooseFirstMatching cards cardOnTop = case [card | card <- cards, canPlace card cardOnTop] of
@@ -62,9 +49,6 @@ drawCardFromGameState GameState{_deck = [], _discardPile = [], _randomGenerator 
 drawCardFromGameState GameState{_deck = [], _discardPile = (h:t), _randomGenerator = rnd, _afterEffects = aff} = drawCardFromGameState GameState{_deck = cds, _discardPile = [h], _randomGenerator = newGen,  _afterEffects = aff}
     where (cds, newGen) = shuffle t rnd
 drawCardFromGameState GameState{_deck = (h:t), _discardPile = disPile, _randomGenerator = rnd, _afterEffects = aff} = (h, GameState{_deck = t, _discardPile = disPile, _randomGenerator = rnd,  _afterEffects = aff})
-
-takeCardToHand :: Player -> Card -> Player
-takeCardToHand pl card = over cards (card :) pl
 
 playerDrawCard :: (Player, GameState) -> (Player, GameState)
 playerDrawCard (pl, gs) = (takeCardToHand pl drawnCard, newGameState)
@@ -140,9 +124,6 @@ drawMultipleCards gs n = (cd : remCds, newGs)
     where
         (cd, midGs) = drawCardFromGameState gs
         (remCds, newGs) = drawMultipleCards midGs (n -1)
-
-haveWon :: Player -> Bool
-haveWon pl = null (view cards pl)
 
 canPlaceFromGameState :: Card -> GameState -> Bool
 canPlaceFromGameState cd gs = canPlace (topCard gs) cd

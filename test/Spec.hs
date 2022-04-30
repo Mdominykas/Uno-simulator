@@ -1,7 +1,9 @@
 module Main where
 
-import Lib (chooseFirstMatching, drawCardFromGameState, GameState (GameState, _deck, _discardPile, _randomGenerator, _afterEffects), deck, topCard, remove, elementById, Player (Player, _playerId, _cards, _choose), cards, playerId, placeCardIfPossible, applyAfterEffects, afterEffects, AfterEffect (NoTurn, Draw), addAfterEffectsToGameState, playerDrawCards, addAfterEffectsOfCard)
+import Lib (chooseFirstMatching, drawCardFromGameState, GameState (GameState, _deck, _discardPile, _randomGenerator, _afterEffects), deck, topCard, remove, elementById, placeCardIfPossible, applyAfterEffects, afterEffects, AfterEffect (NoTurn, Draw), addAfterEffectsToGameState, playerDrawCards, addAfterEffectsOfCard)
 import Cards(Color (..), Card (..), canPlace, cardColor, cardNumber)
+import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId)
+
 import Test.HUnit( assertEqual, runTestTT, Counts, Test(TestList, TestCase) )
 import System.Random (mkStdGen, StdGen, Random (randomR))
 import Control.Lens ( view, over )
