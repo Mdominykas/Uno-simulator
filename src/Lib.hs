@@ -8,20 +8,18 @@ import Control.Lens.TH
 
 
 import System.Random(StdGen, Random (randomR))
-import Control.Monad.State.Lazy
+import Control.Monad.State.Lazy ( MonadState(put, get), when, evalState, State )
 
 import qualified Control.Monad.State.Lazy as ST (get, put, runState, State)
 import System.Random.Stateful (getStdGen)
 import Data.List ((\\), intercalate)
 import Data.Maybe (isJust, isNothing, fromJust)
+import qualified Data.Bifunctor as BF
 
-data Color = Red | Green | Blue | Yellow | Black
-    deriving (Show, Eq, Ord)
+import Cards(Color (..), Card (..), canPlace, cardColor, cardNumber)
 
-data Card = Card Color Int
+data AfterEffect = NoTurn | Draw Int
     deriving (Show, Eq)
-
--- data SpecialCard = PlusTwo Color | SkipTurn Color | ChangeColor | PlusFour
 
 data Player = Player
     {
@@ -35,36 +33,45 @@ data GameState = GameState
     {
     _deck :: [Card],
     _discardPile :: [Card],
-    _randomGenerator :: StdGen
+    _randomGenerator :: StdGen,
+    _afterEffects :: [AfterEffect]
     } deriving(Eq, Show)
 
 $(makeLenses ''GameState)
 $(makeLenses ''Player)
 
+-- alternatyva lenses naudojimui
+changeDeck :: GameState -> [Card] -> GameState
+changeDeck gs dc = gs {_deck = dc}
+
+instance Eq Player
+    where (==) pl1 pl2 = (view playerId pl1 == view playerId pl2) && (view cards pl1 == view cards pl2)
+
 instance Show Player where
     show pl = show (_playerId pl) ++ ": ["++ intercalate ", " (map show (_cards pl)) ++ "]"
 
 chooseFirstMatching :: [Card] -> Card -> Maybe Card
-chooseFirstMatching cards (Card color number) = case [Card col num | (Card col num) <- cards, col == color || num == number] of
+chooseFirstMatching cards cardOnTop = case [card | card <- cards, canPlace card cardOnTop] of
     [] -> Nothing
     (h : t) -> Just h
 
+-- TODO perrasyti su guards
 drawCardFromGameState :: GameState -> (Card, GameState)
-drawCardFromGameState GameState{_deck = [], _discardPile = [], _randomGenerator = rnd}  = drawCardFromGameState GameState{_deck = tail cds, _discardPile = [head cds], _randomGenerator = newGen}
+drawCardFromGameState GameState{_deck = [], _discardPile = [], _randomGenerator = rnd, _afterEffects = aff}  = drawCardFromGameState GameState{_deck = tail cds, _discardPile = [head cds], _randomGenerator = newGen,  _afterEffects = aff}
     where (cds, newGen) = newDeck rnd
-drawCardFromGameState GameState{_deck = [], _discardPile = (h:t), _randomGenerator = rnd} = drawCardFromGameState GameState{_deck = cds, _discardPile = [h], _randomGenerator = newGen}
+drawCardFromGameState GameState{_deck = [], _discardPile = (h:t), _randomGenerator = rnd, _afterEffects = aff} = drawCardFromGameState GameState{_deck = cds, _discardPile = [h], _randomGenerator = newGen,  _afterEffects = aff}
     where (cds, newGen) = shuffle t rnd
-drawCardFromGameState GameState{_deck = (h:t), _discardPile = disPile, _randomGenerator = rnd} = (h, GameState{_deck = t, _discardPile = disPile, _randomGenerator = rnd})
+drawCardFromGameState GameState{_deck = (h:t), _discardPile = disPile, _randomGenerator = rnd, _afterEffects = aff} = (h, GameState{_deck = t, _discardPile = disPile, _randomGenerator = rnd,  _afterEffects = aff})
 
 takeCardToHand :: Player -> Card -> Player
 takeCardToHand pl card = over cards (card :) pl
 
-placeCard :: GameState -> Card -> GameState
-placeCard gs card = over discardPile (card : ) gs
-
-playerDrawCard :: Player -> GameState -> (Player, GameState)
-playerDrawCard pl gs = (takeCardToHand pl drawnCard, newGameState)
+playerDrawCard :: (Player, GameState) -> (Player, GameState)
+playerDrawCard (pl, gs) = (takeCardToHand pl drawnCard, newGameState)
     where (drawnCard, newGameState) = drawCardFromGameState gs
+
+playerDrawCards :: (Player, GameState) -> Int -> (Player, GameState)
+playerDrawCards (pl, gs) n = iterate playerDrawCard (pl, gs) !! n
 
 topCard :: GameState -> Card
 topCard gs = head $ _discardPile gs
@@ -81,7 +88,7 @@ selectStartingCard gs = placeCard remState card
     where (card, remState) = drawCardFromGameState gs
 
 createStartingGameState :: StdGen -> GameState
-createStartingGameState rng = selectStartingCard GameState {_deck = cds, _discardPile = [], _randomGenerator = newRng}
+createStartingGameState rng = selectStartingCard GameState {_deck = cds, _discardPile = [], _randomGenerator = newRng, _afterEffects = []}
     where (cds, newRng) = newDeck rng
 
 elementById :: [a] -> Int -> Maybe a
@@ -100,7 +107,19 @@ shuffle as rng = (selectedVal : aTail, finalGen)
         (aTail, finalGen) = shuffle (remove selectedVal as) newGen
 
 generateDeck :: [Card]
-generateDeck = map decodeCard ([0 .. 39] ++ [0 .. 39])
+generateDeck = map decodeCard ([0 .. 48] ++ [0 .. 48])
+    where
+        decodeCard x
+            | x >= 48 = decodeCard $ x `mod` 48
+            | x >= 44 = PlusTwo (decodeColor $ x `mod` 4)
+            | x >= 40 = SkipTurn (decodeColor $ x `mod` 4)
+            | otherwise = Card (decodeColor $ x `div` 10) (x `mod` 10)
+
+        decodeColor 0 = Red
+        decodeColor 1 = Green
+        decodeColor 2 = Blue
+        decodeColor 3 = Yellow
+        decodeColor _ = Black
 
 generatePrimitivePlayers :: Int -> [Player]
 generatePrimitivePlayers count = [Player{_playerId = id1, _cards = [], _choose = chooseFirstMatching} | id1 <- [0 .. (count - 1)]]
@@ -122,45 +141,74 @@ drawMultipleCards gs n = (cd : remCds, newGs)
         (cd, midGs) = drawCardFromGameState gs
         (remCds, newGs) = drawMultipleCards midGs (n -1)
 
-decodeCard :: Int -> Card
-decodeCard x
-    | x >= 40 = decodeCard $ x `mod` 40
-    | otherwise = Card (decodeColor $ x `div` 10) (x `mod` 10)
-
-decodeColor :: Int -> Color
-decodeColor 0 = Red
-decodeColor 1 = Green
-decodeColor 2 = Blue
-decodeColor 3 = Yellow
-decodeColor _ = Black
-
-canPlace :: Card -> Card -> Bool
-canPlace (Card Black _) _ = True
-canPlace _ (Card Black _) = True
-canPlace (Card col1 num1) (Card col2 num2) = col1 == col2 || num1 == num2
-
 haveWon :: Player -> Bool
 haveWon pl = null (view cards pl)
 
 canPlaceFromGameState :: Card -> GameState -> Bool
 canPlaceFromGameState cd gs = canPlace (topCard gs) cd
 
+generateAfterEffects :: Card -> [AfterEffect]
+generateAfterEffects (Card _ _) = []
+generateAfterEffects (SkipTurn _) = [NoTurn]
+generateAfterEffects (PlusTwo _) = [NoTurn, Draw 2]
+
+addAfterEffectsOfCard :: GameState -> Card -> GameState
+addAfterEffectsOfCard gs card = over afterEffects (generateAfterEffects card ++ ) gs
+
 placeCardIfPossible :: Player -> GameState -> (Bool, (Player, GameState))
 placeCardIfPossible pl gs = case selectedCard of
-    Just card -> let playerWithoutCard = over cards (remove card) pl in (True, (playerWithoutCard, placeCard gs (fromJust selectedCard))) 
+    Just card -> let playerWithoutCard = over cards (remove card) pl in (True, (playerWithoutCard, placeCard gs (fromJust selectedCard)))
     Nothing -> (False, (pl, gs))
-    where 
-        selectedCard = _choose pl (view cards pl) (topCard gs)
-    
+    where
+        selectedCard = view choose pl (view cards pl) (topCard gs)
+
+placeCard :: GameState -> Card -> GameState
+placeCard gs card = addAfterEffectsOfCard cardDiscardedGs card
+    where
+        cardDiscardedGs = over discardPile (card : ) gs
+
+placesCard :: Player -> Card -> GameState -> (Player, GameState)
+placesCard pl card gs = (playerWithoutCard, placeCard gs card)
+    where
+        playerWithoutCard = over cards (remove card) pl
+
 makeMove :: Player -> GameState -> (Player, GameState)
 makeMove pl gs = if haveMadeMove then (newPl, newGs) else snd $ placeCardIfPossible playerHavingDrawn gameStateAfterDraw
-    where 
-        (haveMadeMove, (newPl, newGs)) = placeCardIfPossible pl gs
-        (playerHavingDrawn, gameStateAfterDraw) = playerDrawCard pl gs
-
-makeEveryTurn :: [Player] -> GameState -> (([Player], GameState), Maybe Int)
-makeEveryTurn [] gs = (([], gs), Nothing)
-makeEveryTurn (h:t) gs = if haveWon newPl then ((newPl : t, newGs), Just (view playerId newPl)) else  ((newPl : remPl, remGs), remRes)
     where
-        (newPl, newGs) = makeMove h gs
-        ((remPl, remGs), remRes) = makeEveryTurn t newGs
+        (haveMadeMove, (newPl, newGs)) = placeCardIfPossible pl gs
+        (playerHavingDrawn, gameStateAfterDraw) = playerDrawCard (pl, gs)
+
+sumDrawCards :: [AfterEffect] -> Int
+sumDrawCards [] = 0
+sumDrawCards ((Draw n) : t) = n + sumDrawCards t
+sumDrawCards (_ : t) = sumDrawCards t
+
+addAfterEffectsToGameState :: GameState -> [AfterEffect] -> GameState
+addAfterEffectsToGameState gs aff = over afterEffects (aff ++) gs
+
+clearAfterEffects :: GameState -> GameState
+clearAfterEffects = over afterEffects (const [])
+
+applyAfterEffects :: Player -> GameState -> (Bool, (Player, GameState))
+applyAfterEffects pl gs = (NoTurn `elem` effects, BF.second clearAfterEffects $ playerDrawCards (pl, gs) cardsToDraw)
+    where
+        effects = view afterEffects gs
+        cardsToDraw = sumDrawCards effects
+
+findWinner :: [Player] -> GameState -> Int
+findWinner players gameState = evalState findWinner' (gameState, players, [])
+
+findWinner' :: State (GameState, [Player], [Player]) Int
+findWinner' = do
+    (curGs, remPl, prevPl) <- get
+    when (null remPl) (put (curGs, reverse prevPl, remPl))
+
+    (curGs, remPl, prevPl) <- get
+    let efects = view afterEffects curGs
+        curPl = head remPl
+    let (skipsTurn, (newPl, newGs)) = applyAfterEffects curPl curGs
+    if skipsTurn then put (newGs, tail remPl, newPl : prevPl) >> findWinner' else findWinner'
+    let curPl = head remPl
+        (newPl, newGs) = makeMove curPl curGs
+    put (newGs, tail remPl, newPl : prevPl)
+    if haveWon newPl then return (view playerId newPl) else findWinner'

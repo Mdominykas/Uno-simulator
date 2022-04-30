@@ -9,12 +9,16 @@ import qualified Control.Monad.State.Lazy as ST (get, put, runState, State)
 
 -- import System.Random
 import Control.Concurrent (newChan, Chan, readChan, writeChan, forkIO, threadDelay)
-import Lib (Player(_cards), Card, generatePrimitivePlayers, numberOfPlayers, createStartingGameState, fillWithCardsFromGameState, GameState (GameState), makeMove, haveWon)
+import Lib (Player(_cards), generatePrimitivePlayers, numberOfPlayers, createStartingGameState, fillWithCardsFromGameState, GameState (GameState), makeMove, haveWon, findWinner)
+import Cards(Card (..))
+
 import System.Random (getStdGen, mkStdGen)
 import Data.Maybe
-import Lib (makeEveryTurn)
 import Control.Monad (when)
 import Numeric (showFFloat)
+import Control.Monad.State (State, MonadState (get, put))
+import Control.Monad (forM_)
+import Control.Monad.State.Lazy (evalState)
 
 main :: IO ()
 main = do
@@ -23,6 +27,7 @@ main = do
     let winners = [0 | _ <- [1 .. numberOfPlayers]]
     findResults ch winners
 
+findPercentage :: (Fractional b, Integral a) => [a] -> [b]
 findPercentage as = map ((/ cumSum) . fromIntegral) as
     where cumSum = if sum as == 0 then 1 else fromIntegral $ sum as
 
@@ -51,7 +56,7 @@ incrementByIndex (h : t) val = h : incrementByIndex t (val - 1)
 rotate :: Int -> [a] -> [a]
 rotate _ [] = []
 rotate n xs
-    | n > length xs = rotate (n `mod` length xs) xs 
+    | n > length xs = rotate (n `mod` length xs) xs
     | otherwise = take (length xs) (drop n (cycle xs))
 
 playGame :: Chan Int -> Int -> IO ()
@@ -62,9 +67,5 @@ playGame ch gameNum = do
     let (players, gameState) = foldl (\(oldPl, gs) player -> (fst (fillWithCardsFromGameState player gs) : oldPl, snd (fillWithCardsFromGameState player gs))) ([], initialGameState) noCardPlayers
     let ans = findWinner players gameState
     writeChan ch ans
-    threadDelay 10 -- to slow down game playing, since otherwise findResults lacks behind
+    threadDelay 10 -- to slow down game playing, since otherwise findResults falls behind
     playGame ch (gameNum + 1)
-
-findWinner :: [Player] -> GameState -> Int
-findWinner playerList gs = fromMaybe (findWinner newPlayerList newGs) roundRes
-    where ((newPlayerList, newGs), roundRes) = makeEveryTurn playerList gs

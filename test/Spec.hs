@@ -1,12 +1,13 @@
 module Main where
 
-import Lib (chooseFirstMatching, Card (Card), Color (Green, Blue, Red, Yellow), drawCardFromGameState, GameState (GameState, _deck, _discardPile, _randomGenerator), deck, topCard, remove, elementById, Player (Player, _playerId, _cards, _choose), cards, playerId, makeEveryTurn, placeCardIfPossible)
-import Test.HUnit
+import Lib (chooseFirstMatching, drawCardFromGameState, GameState (GameState, _deck, _discardPile, _randomGenerator, _afterEffects), deck, topCard, remove, elementById, Player (Player, _playerId, _cards, _choose), cards, playerId, placeCardIfPossible, applyAfterEffects, afterEffects, AfterEffect (NoTurn, Draw), addAfterEffectsToGameState, playerDrawCards, addAfterEffectsOfCard)
+import Cards(Color (..), Card (..), canPlace, cardColor, cardNumber)
+import Test.HUnit( assertEqual, runTestTT, Counts, Test(TestList, TestCase) )
 import System.Random (mkStdGen, StdGen, Random (randomR))
-import Control.Lens
+import Control.Lens ( view, over )
 
 sampleGameState :: GameState
-sampleGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42 }
+sampleGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [] }
 
 rngAfterUses :: StdGen -> Int -> StdGen
 rngAfterUses rng 0 = rng
@@ -83,7 +84,7 @@ test_PlaceCardIfPossible_WhenCanPlace = TestCase (assertEqual "player plays card
     where
         (hasPlaced, (newPl, newGs)) = placeCardIfPossible samplePlayer1 sampleGameState
         testResult = (hasPlaced, (comparablePlayerParts newPl, newGs))
-        correctGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42 }
+        correctGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = []}
         correctPlayer = Player{_playerId = 1, _cards = [Card Blue 2], _choose = chooseFirstMatching }
         correctResult = (True, (comparablePlayerParts correctPlayer, correctGameState))
 
@@ -92,23 +93,70 @@ test_PlaceCardIfPossible_WhenCanNotPlace = TestCase (assertEqual "player plays c
     where
         (hasPlaced, (newPl, newGs)) = placeCardIfPossible samplePlayer1 sampleGameState
         testResult = (hasPlaced, (comparablePlayerParts newPl, newGs))
-        correctGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42 }
+        correctGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = []}
         correctPlayer = Player{_playerId = 1, _cards = [Card Blue 2], _choose = chooseFirstMatching }
         correctResult = (True, (comparablePlayerParts correctPlayer, correctGameState))
 
 testListPlaceCardIfPossible :: [Test]
 testListPlaceCardIfPossible = [test_PlaceCardIfPossible_WhenCanPlace]
 
-test_MakeEveryTurn_WhenEveryoneHasCards :: Test
-test_MakeEveryTurn_WhenEveryoneHasCards = TestCase (assertEqual "playing one round" (correctComparablePlayerList, correctGameState) (comparablePlayerList, (snd $ fst result)))
-    where
-        result = makeEveryTurn samplePlayerList1 sampleGameState
-        comparablePlayerList = map comparablePlayerParts (fst $ fst result)
-        correctComparablePlayerList = [(1, [Card Blue 2]), (3, [Card Green 7])]
-        correctGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Red 2, Card Red 5, Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42 }
 
-testListMakeEveryTurn :: [Test]
-testListMakeEveryTurn = [test_MakeEveryTurn_WhenEveryoneHasCards]
+test_AddAfterEffectsToGameState_WhenNoneAdded :: Test
+test_AddAfterEffectsToGameState_WhenNoneAdded = TestCase (assertEqual "none afterEffects are added incorrectly" correctResult testResult)
+    where
+        correctResult = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [] }
+        testResult = addAfterEffectsToGameState sampleGameState []
+
+test_AddAfterEffectsToGameState_WhenMultipleAdded :: Test
+test_AddAfterEffectsToGameState_WhenMultipleAdded = TestCase (assertEqual "multiple afterEffects are added incorrectly" correctResult testResult)
+    where
+        correctResult = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [NoTurn, Draw 5, NoTurn, Draw 4] }
+        testResult = addAfterEffectsToGameState sampleGameState [NoTurn, Draw 5, NoTurn, Draw 4]
+
+testListAddAfterEffectsToGameState :: [Test]
+testListAddAfterEffectsToGameState = [test_AddAfterEffectsToGameState_WhenNoneAdded, test_AddAfterEffectsToGameState_WhenMultipleAdded]
+
+
+test_AddAfterEffectsOfCard_CardWithNoAfterEffect :: Test
+test_AddAfterEffectsOfCard_CardWithNoAfterEffect = TestCase (assertEqual "added no efects of simpleCard" correctResult testResult)
+    where
+        correctResult = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [] }
+        testResult = addAfterEffectsOfCard sampleGameState (Card Red 3)
+
+test_AddAfterEffectsOfCard_SkipTurnCard :: Test
+test_AddAfterEffectsOfCard_SkipTurnCard = TestCase (assertEqual "added no efects of simpleCard" correctResult testResult)
+    where
+        correctResult = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [NoTurn] }
+        testResult = addAfterEffectsOfCard sampleGameState (SkipTurn Green)
+
+test_AddAfterEffectsOfCard_DrawCard :: Test
+test_AddAfterEffectsOfCard_DrawCard = TestCase (assertEqual "added no efects of simpleCard" correctResult testResult)
+    where
+        correctResult = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [NoTurn, Draw 2] }
+        testResult = addAfterEffectsOfCard sampleGameState (PlusTwo Yellow)
+
+test_ApplyAfterEffects_WhenEmpty :: Test
+test_ApplyAfterEffects_WhenEmpty = TestCase (assertEqual "no effects when there arent" correctResult (applyAfterEffects samplePlayer1 sampleGameState))
+    where
+        correctResult = (False, (samplePlayer1, sampleGameState))
+
+test_ApplyAfterEffects_WhenSkipTurn :: Test        
+test_ApplyAfterEffects_WhenSkipTurn = TestCase (assertEqual "player skips turn" correctResult (applyAfterEffects samplePlayer1 (addAfterEffectsToGameState sampleGameState [NoTurn])))
+    where
+        correctResult = (True, (samplePlayer1, sampleGameState))
+
+-- TODO infinite loopas
+test_ApplyAfterEffects_WhenDrawCards :: Test
+test_ApplyAfterEffects_WhenDrawCards = TestCase (assertEqual "player skips turn" correctResult testResult)
+    where
+        correctResult = (True, playerDrawCards (samplePlayer1, sampleGameState) 2)
+        testResult = applyAfterEffects samplePlayer1 (addAfterEffectsToGameState sampleGameState [Draw 1, Draw 1, NoTurn])
+
+testListApplyAfterEffects :: [Test]
+testListApplyAfterEffects = [test_ApplyAfterEffects_WhenEmpty, test_ApplyAfterEffects_WhenSkipTurn]
+-- prideti: test_ApplyAfterEffects_WhenDrawCards, kai nebe infinite loopas
+
+-- TODO parasyti realiu testu findWinner
 
 main :: IO Counts
 main = runTestTT $ TestList (testListChooseFirstMatching ++
@@ -117,4 +165,5 @@ main = runTestTT $ TestList (testListChooseFirstMatching ++
                             testListRemove ++
                             testListElementById ++
                             testListPlaceCardIfPossible ++
-                            testListMakeEveryTurn)
+                            testListAddAfterEffectsToGameState ++
+                            testListApplyAfterEffects)
