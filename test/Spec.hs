@@ -1,8 +1,10 @@
 module Main where
 
-import Lib (chooseFirstMatching, drawCardFromGameState, GameState (GameState, _deck, _discardPile, _randomGenerator, _afterEffects), deck, topCard, remove, elementById, placeCardIfPossible, applyAfterEffects, afterEffects, AfterEffect (NoTurn, Draw), addAfterEffectsToGameState, playerDrawCards, addAfterEffectsOfCard)
-import Cards(Color (..), Card (..), canPlace, cardColor, cardNumber)
-import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId)
+import Card(Color (..), Card (..), canPlace, cardColor, cardNumber)
+import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId, chooseFirstMatching)
+import GameState(deck, topCard, GameState (..), drawCardFromGameState, addAfterEffectsOfCard, addAfterEffectsToGameState, playerDrawCards, applyAfterEffects, placeCardIfPossible)
+import AfterEffect(AfterEffect (..))
+import Utils(remove, elementById,)
 
 import Test.HUnit( assertEqual, runTestTT, Counts, Test(TestList, TestCase) )
 import System.Random (mkStdGen, StdGen, Random (randomR))
@@ -155,8 +157,7 @@ test_ApplyAfterEffects_WhenDrawCards = TestCase (assertEqual "player skips turn"
         testResult = applyAfterEffects samplePlayer1 (addAfterEffectsToGameState sampleGameState [Draw 1, Draw 1, NoTurn])
 
 testListApplyAfterEffects :: [Test]
-testListApplyAfterEffects = [test_ApplyAfterEffects_WhenEmpty, test_ApplyAfterEffects_WhenSkipTurn]
--- prideti: test_ApplyAfterEffects_WhenDrawCards, kai nebe infinite loopas
+testListApplyAfterEffects = [test_ApplyAfterEffects_WhenEmpty, test_ApplyAfterEffects_WhenSkipTurn, test_ApplyAfterEffects_WhenDrawCards]
 
 -- TODO parasyti realiu testu findWinner
 

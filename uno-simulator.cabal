@@ -25,9 +25,13 @@ source-repository head
 
 library
   exposed-modules:
-      Cards
+      AfterEffect
+      Card
+      Constants
+      GameState
       Lib
       Player
+      Utils
   other-modules:
       Paths_uno_simulator
   hs-source-dirs:

@@ -6,7 +6,7 @@ module Player where
 import Control.Lens hiding (element)
 import Control.Lens.TH
 
-import Cards
+import Card ( Card, canPlace )
 import Data.List (intercalate)
 
 data Player = Player
@@ -30,3 +30,11 @@ takeCardToHand pl card = over cards (card :) pl
 
 haveWon :: Player -> Bool
 haveWon pl = null (view cards pl)
+
+chooseFirstMatching :: [Card] -> Card -> Maybe Card
+chooseFirstMatching cards cardOnTop = case [card | card <- cards, canPlace card cardOnTop] of
+    [] -> Nothing
+    (h : t) -> Just h
+
+generatePrimitivePlayers :: Int -> [Player]
+generatePrimitivePlayers count = [Player{_playerId = id1, _cards = [], _choose = chooseFirstMatching} | id1 <- [0 .. (count - 1)]]

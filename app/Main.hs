@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Main where
 
 import Control.Lens hiding (element)
@@ -9,10 +7,11 @@ import qualified Control.Monad.State.Lazy as ST (get, put, runState, State)
 
 -- import System.Random
 import Control.Concurrent (newChan, Chan, readChan, writeChan, forkIO, threadDelay)
-import Lib (generatePrimitivePlayers, numberOfPlayers, createStartingGameState, fillWithCardsFromGameState, GameState (GameState), makeMove, findWinner)
-import Cards(Card (..))
-import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId)
-
+import Lib (makeMove, findWinner)
+import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId, generatePrimitivePlayers)
+import GameState(fillWithCardsFromGameState, createStartingGameState)
+import Constants(numberOfPlayers, startingNumberOfCards)
+import Utils(incrementByIndex, rotate)
 
 import System.Random (getStdGen, mkStdGen)
 import Data.Maybe
@@ -49,17 +48,6 @@ findResults ch oldWinners = do
     let winners = incrementByIndex oldWinners val
     when ((sum winners `mod` 1000) == 0) $ print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
     findResults ch winners
-
-incrementByIndex :: (Eq t, Num t, Num a) => [a] -> t -> [a]
-incrementByIndex [] _ = []
-incrementByIndex (h : t) 0 = h + 1 : t
-incrementByIndex (h : t) val = h : incrementByIndex t (val - 1)
-
-rotate :: Int -> [a] -> [a]
-rotate _ [] = []
-rotate n xs
-    | n > length xs = rotate (n `mod` length xs) xs
-    | otherwise = take (length xs) (drop n (cycle xs))
 
 playGame :: Chan Int -> Int -> IO ()
 playGame ch gameNum = do
