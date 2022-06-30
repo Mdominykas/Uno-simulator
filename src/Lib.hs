@@ -25,19 +25,20 @@ makeMove pl gs = if haveMadeMove then (newPl, newGs) else snd $ placeCardIfPossi
         (playerHavingDrawn, gameStateAfterDraw) = playerDrawCard (pl, gs)
 
 findWinner :: [Player] -> GameState -> Int
-findWinner players gameState = evalState findWinner' (gameState, players, [])
+findWinner players gameState = evalState findWinner' (gameState, players)
 
-findWinner' :: State (GameState, [Player], [Player]) Int
+findWinner' :: State (GameState, [Player]) Int
 findWinner' = do
-    (curGs, remPl, prevPl) <- get
-    when (null remPl) (put (curGs, reverse prevPl, remPl))
+    (curGs, players) <- get
 
-    (curGs, remPl, prevPl) <- get
     let efects = view afterEffects curGs
-        curPl = head remPl
-    let (skipsTurn, (newPl, newGs)) = applyAfterEffects curPl curGs
-    if skipsTurn then put (newGs, tail remPl, newPl : prevPl) >> findWinner' else findWinner'
-    let curPl = head remPl
-        (newPl, newGs) = makeMove curPl curGs
-    put (newGs, tail remPl, newPl : prevPl)
-    if haveWon newPl then return (view playerId newPl) else findWinner'
+        curPl = head players
+        (skipsTurn, (newPl, newGs)) = applyAfterEffects curPl curGs
+    if skipsTurn 
+        then put (newGs, tail players ++ [newPl]) >> findWinner' 
+            else
+        do
+            let (newPl, newGs) = makeMove curPl curGs
+            if haveWon newPl 
+                then return (view playerId newPl) 
+                else put (newGs, tail players ++ [newPl]) >> findWinner'
