@@ -5,7 +5,6 @@ import Control.Lens.TH
 
 import qualified Control.Monad.State.Lazy as ST (get, put, runState, State)
 
--- import System.Random
 import Control.Concurrent (newChan, Chan, readChan, writeChan, forkIO, threadDelay)
 import Lib (makeMove, findWinner)
 import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId, generatePrimitivePlayers)
@@ -15,10 +14,9 @@ import Utils(incrementByIndex, rotate)
 
 import System.Random (getStdGen, mkStdGen)
 import Data.Maybe
-import Control.Monad (when)
+import Control.Monad ( when, forM_ )
 import Numeric (showFFloat)
 import Control.Monad.State (State, MonadState (get, put))
-import Control.Monad (forM_)
 import Control.Monad.State.Lazy (evalState)
 
 main :: IO ()

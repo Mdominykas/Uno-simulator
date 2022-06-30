@@ -41,3 +41,13 @@ findWinner' = do
         (newPl, newGs) = makeMove curPl curGs
     put (newGs, tail remPl, newPl : prevPl)
     if haveWon newPl then return (view playerId newPl) else findWinner'
+
+-- TODO perrasyti, kad grazintu logga
+findWinner'' :: State (GameState, [Player]) Int
+findWinner'' = do
+    (curGs, players) <- get
+    let efects = view afterEffects curGs
+        curPl = head players
+    let (skipsTurn, (newPl, newGs)) = applyAfterEffects curPl curGs
+
+    return 5
