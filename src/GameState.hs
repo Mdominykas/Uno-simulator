@@ -30,17 +30,14 @@ createStartingGameState :: StdGen -> GameState
 createStartingGameState rng = selectStartingCard GameState {_deck = cds, _discardPile = [], _randomGenerator = newRng, _afterEffects = []}
     where (cds, newRng) = newDeck rng
 
--- alternatyva lenses naudojimui
-changeDeck :: GameState -> [Card] -> GameState
-changeDeck gs dc = gs {_deck = dc}
-
--- TODO perrasyti su guards
-drawCardFromGameState :: GameState -> (Card, GameState)
-drawCardFromGameState GameState{_deck = [], _discardPile = [], _randomGenerator = rnd, _afterEffects = aff}  = drawCardFromGameState GameState{_deck = tail cds, _discardPile = [head cds], _randomGenerator = newGen,  _afterEffects = aff}
-    where (cds, newGen) = newDeck rnd
-drawCardFromGameState GameState{_deck = [], _discardPile = (h:t), _randomGenerator = rnd, _afterEffects = aff} = drawCardFromGameState GameState{_deck = cds, _discardPile = [h], _randomGenerator = newGen,  _afterEffects = aff}
-    where (cds, newGen) = shuffle t rnd
-drawCardFromGameState GameState{_deck = (h:t), _discardPile = disPile, _randomGenerator = rnd, _afterEffects = aff} = (h, GameState{_deck = t, _discardPile = disPile, _randomGenerator = rnd,  _afterEffects = aff})
+drawCardFromGameState :: GameState ->(Card, GameState)
+drawCardFromGameState gs 
+    | null (_deck gs) && null (_discardPile gs) = drawCardFromGameState gs{_deck = tail newCards, _discardPile = [head newCards], _randomGenerator = newGen}
+    | null (_deck gs) = drawCardFromGameState gs{_deck = shuffledDeck, _discardPile = [head $ _discardPile gs], _randomGenerator = shuffledGen}
+    | otherwise = (head $ _deck gs, gs{_deck = tail $ _deck gs})
+        where 
+            (newCards, newGen) = newDeck $ view randomGenerator gs
+            (shuffledDeck, shuffledGen) = shuffle (tail $ _discardPile gs) (view randomGenerator gs)
 
 drawMultipleCards :: GameState -> Int -> ([Card], GameState)
 drawMultipleCards gs 0 = ([], gs)
