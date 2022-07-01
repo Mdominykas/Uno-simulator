@@ -1,9 +1,9 @@
 module Utils where
 import System.Random (StdGen, Random (randomR))
 
-remove :: Eq a => a -> [a] -> [a]
-remove _ [] = []
-remove x (h:t) = if x == h then t else h : remove x t
+removeOne :: Eq a => a -> [a] -> [a]
+removeOne _ [] = []
+removeOne x (h:t) = if x == h then t else h : removeOne x t
 
 elementById :: [a] -> Int -> Maybe a
 elementById [] num = Nothing
@@ -18,7 +18,7 @@ shuffle as rng = (selectedVal : aTail, finalGen)
         selectedVal = case elementById as selectedId of
             Nothing -> head as
             Just val -> val
-        (aTail, finalGen) = shuffle (remove selectedVal as) newGen
+        (aTail, finalGen) = shuffle (removeOne selectedVal as) newGen
 
 rotate :: Int -> [a] -> [a]
 rotate _ [] = []

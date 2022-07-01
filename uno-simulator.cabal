@@ -28,6 +28,7 @@ library
       AfterEffect
       Card
       Constants
+      GameLog
       GameState
       Lib
       Player

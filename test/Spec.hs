@@ -2,13 +2,14 @@ module Main where
 
 import Card(Color (..), Card (..), canPlace, cardColor, cardNumber)
 import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId, chooseFirstMatching)
-import GameState(deck, topCard, GameState (..), drawCardFromGameState, addAfterEffectsOfCard, addAfterEffectsToGameState, playerDrawCards, applyAfterEffects, placeCardIfPossible)
+import GameState(deck, topCard, GameState (..), takeCardFromGameState, addAfterEffectsOfCard, addAfterEffectsToGameState, playerDrawCards, applyAfterEffects, placeCardIfPossible)
 import AfterEffect(AfterEffect (..))
-import Utils(remove, elementById,)
+import Utils(removeOne, elementById,)
 
-import Test.HUnit( assertEqual, runTestTT, Counts, Test(TestList, TestCase) )
-import System.Random (mkStdGen, StdGen, Random (randomR))
+import Control.Monad.Writer (WriterT, Writer, MonadWriter (tell), runWriter)
 import Control.Lens ( view, over )
+import System.Random (mkStdGen, StdGen, Random (randomR))
+import Test.HUnit( assertEqual, runTestTT, Counts, Test(TestList, TestCase) )
 
 sampleGameState :: GameState
 sampleGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [] }
@@ -49,14 +50,14 @@ testListChooseFirstMatching :: [Test]
 testListChooseFirstMatching = [test_ChooseFirstMatching_WithColor, test_ChooseFirstMatching_WithNumber, test_ChooseFirstMatching_WhenNoneAvailable]
 
 
-test_DrawCardFromGameState_WhenCardsAreAvailableChoosesFirst :: Test
-test_DrawCardFromGameState_WhenCardsAreAvailableChoosesFirst = TestCase (assertEqual "draw card from available" (Card Red 5) (fst $ drawCardFromGameState sampleGameState))
+test_TakeCardFromGameState_WhenCardsAreAvailableChoosesFirst :: Test
+test_TakeCardFromGameState_WhenCardsAreAvailableChoosesFirst = TestCase (assertEqual "draw take from available" (Card Red 5) (fst $ takeCardFromGameState sampleGameState))
 
-test_DrawCardFromGameState_WhenCardsAreAvailableUpdatesGameState :: Test
-test_DrawCardFromGameState_WhenCardsAreAvailableUpdatesGameState = TestCase (assertEqual "update deck in gamestate" [Card Blue 2, Card Green 3] (view deck $ snd $ drawCardFromGameState sampleGameState))
+test_TakeCardFromGameState_WhenCardsAreAvailableUpdatesGameState :: Test
+test_TakeCardFromGameState_WhenCardsAreAvailableUpdatesGameState = TestCase (assertEqual "update deck in gamestate" [Card Blue 2, Card Green 3] (view deck $ snd $ takeCardFromGameState sampleGameState))
 
-testListDrawCardFromGameState :: [Test]
-testListDrawCardFromGameState = [test_DrawCardFromGameState_WhenCardsAreAvailableChoosesFirst, test_DrawCardFromGameState_WhenCardsAreAvailableUpdatesGameState]
+testListTakeCardFromGameState :: [Test]
+testListTakeCardFromGameState = [test_TakeCardFromGameState_WhenCardsAreAvailableChoosesFirst, test_TakeCardFromGameState_WhenCardsAreAvailableUpdatesGameState]
 
 
 test_TopCardFromGameState_WhenThereIsCard :: Test
@@ -64,10 +65,10 @@ test_TopCardFromGameState_WhenThereIsCard = TestCase (assertEqual "return card w
 
 
 test_Remove_WhenElementIs :: Test
-test_Remove_WhenElementIs = TestCase (assertEqual "remove single element when it is" [1, 3, 2] (remove 2 [1, 2, 3, 2]))
+test_Remove_WhenElementIs = TestCase (assertEqual "remove single element when it is" [1, 3, 2] (removeOne 2 [1, 2, 3, 2]))
 
 test_Remove_WhenNoElement :: Test
-test_Remove_WhenNoElement = TestCase (assertEqual "remove when element isn't there" [1, 2, 3, 2] (remove 5 [1, 2, 3, 2]))
+test_Remove_WhenNoElement = TestCase (assertEqual "remove when element isn't there" [1, 2, 3, 2] (removeOne 5 [1, 2, 3, 2]))
 
 testListRemove :: [Test]
 testListRemove = [test_Remove_WhenElementIs, test_Remove_WhenNoElement]
@@ -86,7 +87,7 @@ testListElementById = [test_ElementById_WhenItis, test_ElementById_WhenItsTooMuc
 test_PlaceCardIfPossible_WhenCanPlace :: Test
 test_PlaceCardIfPossible_WhenCanPlace = TestCase (assertEqual "player plays card from hand" correctResult testResult)
     where
-        (hasPlaced, (newPl, newGs)) = placeCardIfPossible samplePlayer1 sampleGameState
+        (hasPlaced, (newPl, newGs)) = fst $ runWriter $ placeCardIfPossible samplePlayer1 sampleGameState
         testResult = (hasPlaced, (comparablePlayerParts newPl, newGs))
         correctGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = []}
         correctPlayer = Player{_playerId = 1, _cards = [Card Blue 2], _choose = chooseFirstMatching }
@@ -95,7 +96,7 @@ test_PlaceCardIfPossible_WhenCanPlace = TestCase (assertEqual "player plays card
 test_PlaceCardIfPossible_WhenCanNotPlace :: Test
 test_PlaceCardIfPossible_WhenCanNotPlace = TestCase (assertEqual "player plays card from hand" correctResult testResult)
     where
-        (hasPlaced, (newPl, newGs)) = placeCardIfPossible samplePlayer1 sampleGameState
+        (hasPlaced, (newPl, newGs)) = fst $ runWriter $ placeCardIfPossible samplePlayer1 sampleGameState
         testResult = (hasPlaced, (comparablePlayerParts newPl, newGs))
         correctGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = []}
         correctPlayer = Player{_playerId = 1, _cards = [Card Blue 2], _choose = chooseFirstMatching }
@@ -140,30 +141,29 @@ test_AddAfterEffectsOfCard_DrawCard = TestCase (assertEqual "added no efects of 
         testResult = addAfterEffectsOfCard sampleGameState (PlusTwo Yellow)
 
 test_ApplyAfterEffects_WhenEmpty :: Test
-test_ApplyAfterEffects_WhenEmpty = TestCase (assertEqual "no effects when there arent" correctResult (applyAfterEffects samplePlayer1 sampleGameState))
+test_ApplyAfterEffects_WhenEmpty = TestCase (assertEqual "no effects when there arent" correctResult testResult)
     where
+        testResult = fst $ runWriter $ applyAfterEffects samplePlayer1 sampleGameState
         correctResult = (False, (samplePlayer1, sampleGameState))
 
 test_ApplyAfterEffects_WhenSkipTurn :: Test        
-test_ApplyAfterEffects_WhenSkipTurn = TestCase (assertEqual "player skips turn" correctResult (applyAfterEffects samplePlayer1 (addAfterEffectsToGameState sampleGameState [NoTurn])))
+test_ApplyAfterEffects_WhenSkipTurn = TestCase (assertEqual "player skips turn" correctResult testResult)
     where
+        testResult = fst $ runWriter $ applyAfterEffects samplePlayer1 (addAfterEffectsToGameState sampleGameState [NoTurn])
         correctResult = (True, (samplePlayer1, sampleGameState))
 
--- TODO infinite loopas
 test_ApplyAfterEffects_WhenDrawCards :: Test
 test_ApplyAfterEffects_WhenDrawCards = TestCase (assertEqual "player skips turn" correctResult testResult)
     where
-        correctResult = (True, playerDrawCards (samplePlayer1, sampleGameState) 2)
-        testResult = applyAfterEffects samplePlayer1 (addAfterEffectsToGameState sampleGameState [Draw 1, Draw 1, NoTurn])
+        correctResult = (True, fst $ runWriter $ playerDrawCards (samplePlayer1, sampleGameState) 2)
+        testResult = fst $ runWriter $ applyAfterEffects samplePlayer1 (addAfterEffectsToGameState sampleGameState [Draw 1, Draw 1, NoTurn])
 
 testListApplyAfterEffects :: [Test]
 testListApplyAfterEffects = [test_ApplyAfterEffects_WhenEmpty, test_ApplyAfterEffects_WhenSkipTurn, test_ApplyAfterEffects_WhenDrawCards]
 
--- TODO parasyti realiu testu findWinner
-
 main :: IO Counts
 main = runTestTT $ TestList (testListChooseFirstMatching ++
-                            testListDrawCardFromGameState ++
+                            testListTakeCardFromGameState ++
                             [test_TopCardFromGameState_WhenThereIsCard] ++
                             testListRemove ++
                             testListElementById ++

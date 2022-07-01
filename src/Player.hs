@@ -9,9 +9,11 @@ import Control.Lens.TH
 import Card ( Card, canPlace )
 import Data.List (intercalate)
 
+type PlayerId = Int
+
 data Player = Player
     {
-    _playerId :: Int,
+    _playerId :: PlayerId,
     _cards :: [Card],
     _choose :: [Card] -> Card -> Maybe Card
     -- select :: [Card] -> Color

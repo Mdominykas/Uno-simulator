@@ -54,6 +54,6 @@ playGame ch gameNum = do
     let initialGameState = createStartingGameState stdGen
     let (players, gameState) = foldl (\(oldPl, gs) player -> (fst (fillWithCardsFromGameState player gs) : oldPl, snd (fillWithCardsFromGameState player gs))) ([], initialGameState) noCardPlayers
     let ans = findWinner players gameState
-    writeChan ch ans
+    writeChan ch (fst ans)
     threadDelay 10 -- to slow down game playing, since otherwise findResults falls behind
     playGame ch (gameNum + 1)
