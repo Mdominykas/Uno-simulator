@@ -27,6 +27,7 @@ library
   exposed-modules:
       AfterEffect
       Card
+      CardPlacement
       Constants
       GameLog
       GameState

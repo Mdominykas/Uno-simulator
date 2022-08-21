@@ -1,5 +1,5 @@
 module AfterEffect where
-import Card (Card(..))
+import Card (Card(..), Color)
 
 data AfterEffect = NoTurn | Draw Int
     deriving (Show, Eq)
@@ -13,3 +13,4 @@ generateAfterEffects :: Card -> [AfterEffect]
 generateAfterEffects (Card _ _) = []
 generateAfterEffects (SkipTurn _) = [NoTurn]
 generateAfterEffects (PlusTwo _) = [NoTurn, Draw 2]
+generateAfterEffects ChangeColor = []

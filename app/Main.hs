@@ -21,6 +21,7 @@ import Control.Monad.State.Lazy (evalState)
 
 main :: IO ()
 main = do
+    print "I started a program"
     ch <- newChan
     forkIO $ playGame ch 0
     let winners = [0 | _ <- [1 .. numberOfPlayers]]
@@ -44,11 +45,12 @@ findResults :: Chan Int -> [Int] -> IO ()
 findResults ch oldWinners = do
     val <- readChan ch
     let winners = incrementByIndex oldWinners val
-    when ((sum winners `mod` 1000) == 0) $ print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
+    when ((sum winners `mod` 10) == 0) $ print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
     findResults ch winners
 
 playGame :: Chan Int -> Int -> IO ()
 playGame ch gameNum = do
+    -- print $ "started a round number" ++ show gameNum
     let stdGen = mkStdGen gameNum
     let noCardPlayers = rotate gameNum (generatePrimitivePlayers numberOfPlayers)
     let initialGameState = createStartingGameState stdGen

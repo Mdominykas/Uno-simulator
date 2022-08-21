@@ -1,6 +1,8 @@
 module GameLog where
-import Player (PlayerId)
-import Card (Card)
+import Player (PlayerId, Player, playerId)
+import Card (Card, Color)
+import CardPlacement (CardPlacement(..))
+import Control.Lens (view)
 
 data LogMessage = PlacedCard PlayerId Card 
                 | DrewCard PlayerId Card 
@@ -9,4 +11,9 @@ data LogMessage = PlacedCard PlayerId Card
                 | StartOfTurn PlayerId
                 | EndOfTurn PlayerId
                 | WonGame PlayerId
-                deriving (Show)
+                | ChangedColor PlayerId Color
+                deriving (Show, Eq)
+
+createPlacementLog :: Player -> CardPlacement -> [LogMessage]
+createPlacementLog player (Normal card) = [PlacedCard (view playerId player) card]
+createPlacementLog player (WithColorChange card color) = [PlacedCard (view playerId player) card, ChangedColor (view playerId player) color]

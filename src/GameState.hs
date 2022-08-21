@@ -12,25 +12,41 @@ import qualified Data.Bifunctor as BF
 import Constants (startingNumberOfCards)
 import Data.Maybe (fromJust)
 import Control.Monad.Writer (Writer, MonadWriter (tell))
-import GameLog (LogMessage (SkippedTurn, DrewCard, PlacedCard))
+import GameLog (LogMessage (SkippedTurn, DrewCard, PlacedCard), createPlacementLog)
+import CardPlacement (CardPlacement (Normal, WithColorChange), placementFits, canChangeColor, getCardFromPlacement)
 
 data GameState = GameState
     {
     _deck :: [Card],
     _discardPile :: [Card],
     _randomGenerator :: StdGen,
-    _afterEffects :: [AfterEffect]
+    _afterEffects :: [AfterEffect],
+    topCardPlacement :: CardPlacement
     } deriving(Eq, Show)
 
 $(makeLenses ''GameState)
 
-selectStartingCard :: GameState -> GameState
-selectStartingCard gs = placeCard remState card
-    where (card, remState) = takeCardFromGameState gs
+createPlacement :: Player -> Card -> CardPlacement
+createPlacement pl card =
+    if canChangeColor card then
+        WithColorChange card (chooseColor pl (view cards pl))
+        else
+            Normal card
+
+selectStartingCard :: [Card] -> ([Card], [Card])
+selectStartingCard cds = if canChangeColor card then (tailDeck, tailDiscardPile ++ [card]) else (tail cds, [card])
+    where 
+        card = head cds
+        (tailDeck, tailDiscardPile) = selectStartingCard (tail cds)
+
+extractTopCardPlacement :: Card -> CardPlacement
+extractTopCardPlacement card = if canChangeColor card then error "gameState cannot choose color of card" else Normal card
 
 createStartingGameState :: StdGen -> GameState
-createStartingGameState rng = selectStartingCard GameState {_deck = cds, _discardPile = [], _randomGenerator = newRng, _afterEffects = []}
-    where (cds, newRng) = newDeck rng
+createStartingGameState rng = GameState {_deck = startingDeck, _discardPile = startingDiscardPile, _randomGenerator = newRng, _afterEffects = [], topCardPlacement = extractTopCardPlacement (head startingDiscardPile)}
+    where 
+        (cds, newRng) = newDeck rng
+        (startingDeck, startingDiscardPile) = selectStartingCard cds
 
 takeCardFromGameState :: GameState -> (Card, GameState)
 takeCardFromGameState gs
@@ -48,21 +64,18 @@ takeMultipleCards gs n = (cd : remCds, newGs)
         (cd, midGs) = takeCardFromGameState gs
         (remCds, newGs) = takeMultipleCards midGs (n -1)
 
-topCard :: GameState -> Card
-topCard gs = head $ view discardPile gs
-
 canPlaceFromGameState :: Card -> GameState -> Bool
-canPlaceFromGameState cd gs = canPlace (topCard gs) cd
+canPlaceFromGameState card gs = placementFits (topCardPlacement gs) card
 
 fillWithCardsFromGameState :: Player -> GameState -> (Player, GameState)
-fillWithCardsFromGameState Player{_playerId = i, _choose = chs} gs = (Player{_playerId = i, _choose = chs, _cards = cds}, newGs)
+fillWithCardsFromGameState pl gs = (pl{_cards = cds}, newGs)
     where (cds, newGs) = takeMultipleCards gs startingNumberOfCards
 
 playerDrawCard :: (Player, GameState) -> Writer [LogMessage] (Player, GameState)
 playerDrawCard (pl, gs) = do
     tell [DrewCard (view playerId pl) drawnCard]
     return (takeCardToHand pl drawnCard, newGameState)
-    where (drawnCard, newGameState) = takeCardFromGameState gs
+        where (drawnCard, newGameState) = takeCardFromGameState gs
 
 playerDrawCards :: (Player, GameState) -> Int -> Writer [LogMessage] (Player, GameState)
 playerDrawCards (pl, gs) 0 = return (pl, gs)
@@ -70,17 +83,21 @@ playerDrawCards (pl, gs) n = do
     (newPl, newGs) <- playerDrawCard (pl, gs)
     playerDrawCards (newPl, newGs) (n - 1)
 
-placeCard :: GameState -> Card -> GameState
-placeCard gs card = addAfterEffectsOfCard cardDiscardedGs card
+placeCard :: GameState -> CardPlacement -> GameState
+placeCard gs cardPlacement = addAfterEffectsOfCard finalGs card
     where
+        card = getCardFromPlacement cardPlacement
         cardDiscardedGs = over discardPile (card : ) gs
+        finalGs = cardDiscardedGs{topCardPlacement = cardPlacement}
 
 placesCard :: Player -> Card -> GameState -> Writer [LogMessage] (Player, GameState)
 placesCard pl card gs = do
-    tell [PlacedCard (view playerId pl) card]
-    return (playerWithoutCard, placeCard gs card)
+    tell (createPlacementLog pl cardPlacement)
+    return (playerWithoutCard, placeCard gs cardPlacement)
     where
+        cardPlacement = createPlacement pl card
         playerWithoutCard = over cards (removeOne card) pl
+        
 
 addAfterEffectsOfCard :: GameState -> Card -> GameState
 addAfterEffectsOfCard gs card = over afterEffects (generateAfterEffects card ++ ) gs
@@ -111,4 +128,4 @@ placeCardIfPossible pl gs =  case selectedCard of
         return (True, (newPl, newGs))
     Nothing -> return (False, (pl, gs))
     where
-        selectedCard = view choose pl (view cards pl) (topCard gs)
+        selectedCard = view choose pl (view cards pl) (topCardPlacement gs)

@@ -6,8 +6,9 @@ module Player where
 import Control.Lens hiding (element)
 import Control.Lens.TH
 
-import Card ( Card, canPlace )
+import Card ( Card, canPlace, Color (Yellow, Black), cardColor )
 import Data.List (intercalate)
+import CardPlacement (CardPlacement, placementFits)
 
 type PlayerId = Int
 
@@ -15,7 +16,8 @@ data Player = Player
     {
     _playerId :: PlayerId,
     _cards :: [Card],
-    _choose :: [Card] -> Card -> Maybe Card
+    _choose :: [Card] -> CardPlacement -> Maybe Card,
+    chooseColor :: [Card] -> Color
     -- select :: [Card] -> Color
     }
 
@@ -33,10 +35,16 @@ takeCardToHand pl card = over cards (card :) pl
 haveWon :: Player -> Bool
 haveWon pl = null (view cards pl)
 
-chooseFirstMatching :: [Card] -> Card -> Maybe Card
-chooseFirstMatching cards cardOnTop = case [card | card <- cards, canPlace card cardOnTop] of
+chooseFirstMatching :: [Card] -> CardPlacement -> Maybe Card
+chooseFirstMatching cards topPlacedCard = case [card | card <- cards, placementFits topPlacedCard card] of
     [] -> Nothing
     (h : t) -> Just h
 
+chooseFirstColorOrYellow :: [Card] -> Color
+chooseFirstColorOrYellow cards
+    | null cards = Yellow
+    | cardColor (head cards) == Black = chooseFirstColorOrYellow (tail cards)
+    | otherwise = cardColor (head cards)
+
 generatePrimitivePlayers :: Int -> [Player]
-generatePrimitivePlayers count = [Player{_playerId = id1, _cards = [], _choose = chooseFirstMatching} | id1 <- [0 .. (count - 1)]]
+generatePrimitivePlayers count = [Player{_playerId = id1, _cards = [], _choose = chooseFirstMatching, chooseColor = chooseFirstColorOrYellow} | id1 <- [0 .. (count - 1)]]
