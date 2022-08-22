@@ -17,3 +17,6 @@ numberedCardCount = 2
 
 changeColorCardCount :: Int
 changeColorCardCount = 4
+
+plus4CardCount :: Int
+plus4CardCount = 4
