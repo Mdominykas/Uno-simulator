@@ -1,12 +1,9 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module GameState where
 
 import Card(Color (..), Card (..), canPlace, cardColor, cardNumber, newDeck)
 import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId)
 import System.Random (StdGen)
 import AfterEffect (AfterEffect (..), sumDrawCards, generateAfterEffects)
-import Control.Lens ( over, makeLenses, view )
 import Utils (shuffle, removeOne)
 import qualified Data.Bifunctor as BF
 import Constants (startingNumberOfCards)
@@ -25,12 +22,10 @@ data GameState = GameState
     topCardPlacement :: CardPlacement
     } deriving(Eq, Show)
 
-$(makeLenses ''GameState)
-
 createPlacement :: Player -> Card -> CardPlacement
 createPlacement pl card =
     if canChangeColor card then
-        WithColorChange card (chooseColor pl (view cards pl))
+        WithColorChange card (chooseColor pl (cards pl))
         else
             Normal card
 
@@ -55,8 +50,8 @@ takeCardFromGameState gs
     | null (_deck gs) = takeCardFromGameState gs{_deck = shuffledDeck, _discardPile = [head $ _discardPile gs], _randomGenerator = shuffledGen}
     | otherwise = (head $ _deck gs, gs{_deck = tail $ _deck gs})
         where
-            (newCards, newGen) = newDeck $ view randomGenerator gs
-            (shuffledDeck, shuffledGen) = shuffle (tail $ _discardPile gs) (view randomGenerator gs)
+            (newCards, newGen) = newDeck $ _randomGenerator gs
+            (shuffledDeck, shuffledGen) = shuffle (tail $ _discardPile gs) (_randomGenerator gs)
 
 takeMultipleCards :: GameState -> Int -> ([Card], GameState)
 takeMultipleCards gs 0 = ([], gs)
@@ -69,12 +64,12 @@ canPlaceFromGameState :: Card -> GameState -> Bool
 canPlaceFromGameState card gs = placementFits (topCardPlacement gs) card
 
 fillWithCardsFromGameState :: Player -> GameState -> (Player, GameState)
-fillWithCardsFromGameState pl gs = (pl{_cards = cds}, newGs)
+fillWithCardsFromGameState pl gs = (pl{cards = cds}, newGs)
     where (cds, newGs) = takeMultipleCards gs startingNumberOfCards
 
 playerDrawCard :: (Player, GameState) -> Writer [LogMessage] (Player, GameState)
 playerDrawCard (pl, gs) = do
-    tell [DrewCard (view playerId pl) drawnCard]
+    tell [DrewCard (playerId pl) drawnCard]
     return (takeCardToHand pl drawnCard, newGameState)
         where (drawnCard, newGameState) = takeCardFromGameState gs
 
@@ -97,7 +92,7 @@ placesCard pl card gs = do
     return (playerWithoutCard, placeCard gs cardPlacement)
     where
         cardPlacement = createPlacement pl card
-        playerWithoutCard = over cards (removeOne card) pl
+        playerWithoutCard = pl{cards = removeOne card $ cards pl}
 
 
 addAfterEffectsOfCard :: GameState -> Card -> GameState
@@ -108,25 +103,23 @@ clearAfterEffects gs = gs{_afterEffects = []}
 
 applyAfterEffects :: Player -> GameState -> Writer [LogMessage] (Bool, (Player, GameState))
 applyAfterEffects pl gs = do
-    -- traceM ("calling from applyAfterEffects  where {turn is skipped} = " ++ show skipsTurn)
     if skipsTurn
-        then tell [SkippedTurn $ view playerId pl]
+        then tell [SkippedTurn $ playerId pl]
         else tell []
     (newPl, newGs) <- playerDrawCards (pl, gs) cardsToDraw
     return (skipsTurn, (newPl, clearAfterEffects newGs))
     where
         skipsTurn = NoTurn `elem` effects
-        effects = view afterEffects gs
+        effects = _afterEffects gs
         cardsToDraw = sumDrawCards effects
 
 placeCardIfPossible :: Player -> GameState -> Writer [LogMessage] (Bool, (Player, GameState))
 placeCardIfPossible pl gs =  case selectedCard of
     Just card -> do
         (newPl, newGs) <- placesCard pl card gs
-        -- let playerWithoutCard = over cards (removeOne card) pl in 
         return (True, (newPl, newGs))
     Nothing -> return (False, (pl, gs))
     where
-        selectedCard = view choose pl (view cards pl) (topCardPlacement gs)
+        selectedCard = choose pl (cards pl) (topCardPlacement gs)
 
 -- function trace is good for debugging (like print)

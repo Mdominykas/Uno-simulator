@@ -19,13 +19,13 @@ rngAfterUses rng 0 = rng
 rngAfterUses rng n = rngAfterUses (snd $ randomR (0, n) rng) (n - 1)
 
 samplePlayer1 :: Player
-samplePlayer1 = Player{_playerId = 1, _cards = [Card Red 5, Card Blue 2], _choose = chooseFirstMatching }
+samplePlayer1 = Player{playerId = 1, cards = [Card Red 5, Card Blue 2], choose = chooseFirstMatching }
 
 samplePlayer2 :: Player
-samplePlayer2 = Player{_playerId = 2, _cards = [Card Red 3], _choose = chooseFirstMatching }
+samplePlayer2 = Player{playerId = 2, cards = [Card Red 3], choose = chooseFirstMatching }
 
 samplePlayer3 :: Player
-samplePlayer3 = Player{_playerId = 3, _cards = [Card Green 7, Card Red 2], _choose = chooseFirstMatching }
+samplePlayer3 = Player{playerId = 3, cards = [Card Green 7, Card Red 2], choose = chooseFirstMatching }
 
 samplePlayerList1 :: [Player]
 samplePlayerList1 = [samplePlayer1, samplePlayer3]
@@ -34,7 +34,7 @@ samplePlayerList2 :: [Player]
 samplePlayerList2 = [samplePlayer1, samplePlayer2, samplePlayer3]
 
 comparablePlayerParts :: Player -> (Int, [Card])
-comparablePlayerParts pl = (view playerId pl, view cards pl)
+comparablePlayerParts pl = (playerId pl, cards pl)
 
 
 test_ChooseFirstMatching_WithColor :: Test
@@ -90,7 +90,7 @@ test_PlaceCardIfPossible_WhenCanPlace = TestCase (assertEqual "player plays card
         (hasPlaced, (newPl, newGs)) = fst $ runWriter $ placeCardIfPossible samplePlayer1 sampleGameState
         testResult = (hasPlaced, (comparablePlayerParts newPl, newGs))
         correctGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = []}
-        correctPlayer = Player{_playerId = 1, _cards = [Card Blue 2], _choose = chooseFirstMatching }
+        correctPlayer = Player{playerId = 1, cards = [Card Blue 2], choose = chooseFirstMatching }
         correctResult = (True, (comparablePlayerParts correctPlayer, correctGameState))
 
 test_PlaceCardIfPossible_WhenCanNotPlace :: Test
@@ -99,7 +99,7 @@ test_PlaceCardIfPossible_WhenCanNotPlace = TestCase (assertEqual "player plays c
         (hasPlaced, (newPl, newGs)) = fst $ runWriter $ placeCardIfPossible samplePlayer1 sampleGameState
         testResult = (hasPlaced, (comparablePlayerParts newPl, newGs))
         correctGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = []}
-        correctPlayer = Player{_playerId = 1, _cards = [Card Blue 2], _choose = chooseFirstMatching }
+        correctPlayer = Player{playerId = 1, cards = [Card Blue 2], choose = chooseFirstMatching }
         correctResult = (True, (comparablePlayerParts correctPlayer, correctGameState))
 
 testListPlaceCardIfPossible :: [Test]

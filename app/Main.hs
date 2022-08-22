@@ -1,13 +1,10 @@
 module Main where
 
-import Control.Lens hiding (element)
-import Control.Lens.TH
-
 import qualified Control.Monad.State.Lazy as ST (get, put, runState, State)
 
 import Control.Concurrent (newChan, Chan, readChan, writeChan, forkIO, threadDelay)
 import Lib (makeMove, findWinner)
-import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId, generatePrimitivePlayers)
+import Player(Player (..), takeCardToHand, haveWon, cards, playerId, generatePrimitivePlayers)
 import GameState(fillWithCardsFromGameState, createStartingGameState)
 import Constants(numberOfPlayers, startingNumberOfCards)
 import Utils(incrementByIndex, rotate)
@@ -45,7 +42,6 @@ findResults :: Chan Int -> [Int] -> IO ()
 findResults ch oldWinners = do
     val <- readChan ch
     let winners = incrementByIndex oldWinners val
-    -- print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
     when ((sum winners `mod` 1000) == 0) $ print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
     findResults ch winners
 

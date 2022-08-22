@@ -1,9 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Lib where
-
-import Control.Lens hiding (element)
-import Control.Lens.TH
 
 import System.Random(StdGen, Random (randomR))
 import Control.Monad.State.Lazy ( MonadState(put, get), when, evalState, State )
@@ -15,8 +10,8 @@ import Data.Maybe (isJust, isNothing, fromJust)
 import qualified Data.Bifunctor as BF
 
 import Card(Color (..), Card (..), canPlace, cardColor, cardNumber)
-import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId)
-import GameState(GameState (..), deck, discardPile, afterEffects, takeCardFromGameState, canPlaceFromGameState, fillWithCardsFromGameState, applyAfterEffects, placeCardIfPossible, playerDrawCard)
+import Player(Player (..), takeCardToHand, haveWon, choose, playerId)
+import GameState(GameState (..), _deck, _discardPile, _afterEffects, takeCardFromGameState, canPlaceFromGameState, fillWithCardsFromGameState, applyAfterEffects, placeCardIfPossible, playerDrawCard)
 import Control.Monad.Writer (WriterT, Writer, MonadWriter (tell), runWriter)
 import GameLog (LogMessage (SkippedTurn, StartOfTurn, WonGame, EndOfTurn))
 import Debug.Trace (trace, traceId, traceM)
@@ -41,7 +36,7 @@ findWinner'' :: (GameState, [Player]) -> Writer [LogMessage] Int
 findWinner'' (curGs, players) = do
     traceM "\nhello\n"
     let curPl = head players
-        plId = view playerId curPl
+        plId = playerId curPl
 
     (skipsTurn, (newPl, newGs)) <- applyAfterEffects curPl curGs
     if skipsTurn 
@@ -52,7 +47,7 @@ findWinner'' (curGs, players) = do
             if haveWon newPl 
                 then do 
                     tell [WonGame plId]
-                    return (view playerId newPl) 
+                    return (playerId newPl) 
                 else do 
                     tell [EndOfTurn plId]
                     findWinner'' (newGs, tail players ++ [newPl])
