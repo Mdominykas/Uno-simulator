@@ -45,7 +45,8 @@ findResults :: Chan Int -> [Int] -> IO ()
 findResults ch oldWinners = do
     val <- readChan ch
     let winners = incrementByIndex oldWinners val
-    when ((sum winners `mod` 10) == 0) $ print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
+    -- print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
+    when ((sum winners `mod` 1000) == 0) $ print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
     findResults ch winners
 
 playGame :: Chan Int -> Int -> IO ()
@@ -56,6 +57,15 @@ playGame ch gameNum = do
     let initialGameState = createStartingGameState stdGen
     let (players, gameState) = foldl (\(oldPl, gs) player -> (fst (fillWithCardsFromGameState player gs) : oldPl, snd (fillWithCardsFromGameState player gs))) ([], initialGameState) noCardPlayers
     let ans = findWinner players gameState
+    -- print $ "winner is " ++ show ans
     writeChan ch (fst ans)
     threadDelay 10 -- to slow down game playing, since otherwise findResults falls behind
     playGame ch (gameNum + 1)
+
+oneGame gameNum = do
+    let stdGen = mkStdGen gameNum
+    let noCardPlayers = rotate gameNum (generatePrimitivePlayers numberOfPlayers)
+    let initialGameState = createStartingGameState stdGen
+    let (players, gameState) = foldl (\(oldPl, gs) player -> (fst (fillWithCardsFromGameState player gs) : oldPl, snd (fillWithCardsFromGameState player gs))) ([], initialGameState) noCardPlayers
+    let ans = findWinner players gameState
+    print $ fst ans

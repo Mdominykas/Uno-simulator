@@ -3,6 +3,7 @@ import Player (PlayerId, Player, playerId)
 import Card (Card, Color)
 import CardPlacement (CardPlacement(..))
 import Control.Lens (view)
+import Control.Monad.Writer
 
 data LogMessage = PlacedCard PlayerId Card 
                 | DrewCard PlayerId Card 

@@ -19,6 +19,7 @@ import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId)
 import GameState(GameState (..), deck, discardPile, afterEffects, takeCardFromGameState, canPlaceFromGameState, fillWithCardsFromGameState, applyAfterEffects, placeCardIfPossible, playerDrawCard)
 import Control.Monad.Writer (WriterT, Writer, MonadWriter (tell), runWriter)
 import GameLog (LogMessage (SkippedTurn, StartOfTurn, WonGame, EndOfTurn))
+import Debug.Trace (trace, traceId, traceM)
 
 makeMove :: Player -> GameState -> Writer [LogMessage] (Player, GameState)
 makeMove pl gs = do
@@ -35,10 +36,13 @@ makeMove pl gs = do
 findWinner :: [Player] -> GameState -> (Int, [LogMessage])
 findWinner players gameState = runWriter $ findWinner'' (gameState, players)
 
+-- TODO Writer [LogMessage] atrodo, kad kiekvienu sujungia listus (kvadratinis)
 findWinner'' :: (GameState, [Player]) -> Writer [LogMessage] Int
 findWinner'' (curGs, players) = do
+    traceM "\nhello\n"
     let curPl = head players
         plId = view playerId curPl
+
     (skipsTurn, (newPl, newGs)) <- applyAfterEffects curPl curGs
     if skipsTurn 
         then findWinner'' (newGs, tail players ++ [newPl])

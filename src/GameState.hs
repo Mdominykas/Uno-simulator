@@ -14,6 +14,7 @@ import Data.Maybe (fromJust)
 import Control.Monad.Writer (Writer, MonadWriter (tell))
 import GameLog (LogMessage (SkippedTurn, DrewCard, PlacedCard), createPlacementLog)
 import CardPlacement (CardPlacement (Normal, WithColorChange), placementFits, canChangeColor, getCardFromPlacement)
+import Debug.Trace (trace, traceM)
 
 data GameState = GameState
     {
@@ -35,7 +36,7 @@ createPlacement pl card =
 
 selectStartingCard :: [Card] -> ([Card], [Card])
 selectStartingCard cds = if canChangeColor card then (tailDeck, tailDiscardPile ++ [card]) else (tail cds, [card])
-    where 
+    where
         card = head cds
         (tailDeck, tailDiscardPile) = selectStartingCard (tail cds)
 
@@ -44,13 +45,13 @@ extractTopCardPlacement card = if canChangeColor card then error "gameState cann
 
 createStartingGameState :: StdGen -> GameState
 createStartingGameState rng = GameState {_deck = startingDeck, _discardPile = startingDiscardPile, _randomGenerator = newRng, _afterEffects = [], topCardPlacement = extractTopCardPlacement (head startingDiscardPile)}
-    where 
+    where
         (cds, newRng) = newDeck rng
         (startingDeck, startingDiscardPile) = selectStartingCard cds
 
 takeCardFromGameState :: GameState -> (Card, GameState)
 takeCardFromGameState gs
-    | null (_deck gs) && null (_discardPile gs) = takeCardFromGameState gs{_deck = tail newCards, _discardPile = [head newCards], _randomGenerator = newGen}
+    | null (_deck gs) && null (_discardPile gs) = error "I didn't want to take new deck" --takeCardFromGameState gs{_deck = tail newCards, _discardPile = [head newCards], _randomGenerator = newGen}
     | null (_deck gs) = takeCardFromGameState gs{_deck = shuffledDeck, _discardPile = [head $ _discardPile gs], _randomGenerator = shuffledGen}
     | otherwise = (head $ _deck gs, gs{_deck = tail $ _deck gs})
         where
@@ -87,7 +88,7 @@ placeCard :: GameState -> CardPlacement -> GameState
 placeCard gs cardPlacement = addAfterEffectsOfCard finalGs card
     where
         card = getCardFromPlacement cardPlacement
-        cardDiscardedGs = over discardPile (card : ) gs
+        cardDiscardedGs = gs{_discardPile = card : _discardPile gs}
         finalGs = cardDiscardedGs{topCardPlacement = cardPlacement}
 
 placesCard :: Player -> Card -> GameState -> Writer [LogMessage] (Player, GameState)
@@ -97,21 +98,19 @@ placesCard pl card gs = do
     where
         cardPlacement = createPlacement pl card
         playerWithoutCard = over cards (removeOne card) pl
-        
+
 
 addAfterEffectsOfCard :: GameState -> Card -> GameState
-addAfterEffectsOfCard gs card = over afterEffects (generateAfterEffects card ++ ) gs
-
-addAfterEffectsToGameState :: GameState -> [AfterEffect] -> GameState
-addAfterEffectsToGameState gs aff = over afterEffects (aff ++) gs
+addAfterEffectsOfCard gs card = gs{_afterEffects = generateAfterEffects card ++ _afterEffects gs}
 
 clearAfterEffects :: GameState -> GameState
-clearAfterEffects = over afterEffects (const [])
+clearAfterEffects gs = gs{_afterEffects = []}
 
 applyAfterEffects :: Player -> GameState -> Writer [LogMessage] (Bool, (Player, GameState))
 applyAfterEffects pl gs = do
-    if skipsTurn 
-        then tell [SkippedTurn $ view playerId pl] 
+    -- traceM ("calling from applyAfterEffects  where {turn is skipped} = " ++ show skipsTurn)
+    if skipsTurn
+        then tell [SkippedTurn $ view playerId pl]
         else tell []
     (newPl, newGs) <- playerDrawCards (pl, gs) cardsToDraw
     return (skipsTurn, (newPl, clearAfterEffects newGs))
@@ -129,3 +128,5 @@ placeCardIfPossible pl gs =  case selectedCard of
     Nothing -> return (False, (pl, gs))
     where
         selectedCard = view choose pl (view cards pl) (topCardPlacement gs)
+
+-- function trace is good for debugging (like print)
