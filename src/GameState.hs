@@ -15,10 +15,10 @@ import Debug.Trace (trace, traceM)
 
 data GameState = GameState
     {
-    _deck :: [Card],
-    _discardPile :: [Card],
-    _randomGenerator :: StdGen,
-    _afterEffects :: [AfterEffect],
+    deck :: [Card],
+    discardPile :: [Card],
+    randomGenerator :: StdGen,
+    afterEffects :: [AfterEffect],
     topCardPlacement :: CardPlacement
     } deriving(Eq, Show)
 
@@ -39,19 +39,19 @@ extractTopCardPlacement :: Card -> CardPlacement
 extractTopCardPlacement card = if canChangeColor card then error "gameState cannot choose color of card" else Normal card
 
 createStartingGameState :: StdGen -> GameState
-createStartingGameState rng = GameState {_deck = startingDeck, _discardPile = startingDiscardPile, _randomGenerator = newRng, _afterEffects = [], topCardPlacement = extractTopCardPlacement (head startingDiscardPile)}
+createStartingGameState rng = GameState {deck = startingDeck, discardPile = startingDiscardPile, randomGenerator = newRng, afterEffects = [], topCardPlacement = extractTopCardPlacement (head startingDiscardPile)}
     where
         (cds, newRng) = newDeck rng
         (startingDeck, startingDiscardPile) = selectStartingCard cds
 
 takeCardFromGameState :: GameState -> (Card, GameState)
 takeCardFromGameState gs
-    | null (_deck gs) && null (_discardPile gs) = error "I didn't want to take new deck" --takeCardFromGameState gs{_deck = tail newCards, _discardPile = [head newCards], _randomGenerator = newGen}
-    | null (_deck gs) = takeCardFromGameState gs{_deck = shuffledDeck, _discardPile = [head $ _discardPile gs], _randomGenerator = shuffledGen}
-    | otherwise = (head $ _deck gs, gs{_deck = tail $ _deck gs})
+    | null (deck gs) && null (discardPile gs) = error "I didn't want to take new deck" --takeCardFromGameState gs{deck = tail newCards, discardPile = [head newCards], randomGenerator = newGen}
+    | null (deck gs) = takeCardFromGameState gs{deck = shuffledDeck, discardPile = [head $ discardPile gs], randomGenerator = shuffledGen}
+    | otherwise = (head $ deck gs, gs{deck = tail $ deck gs})
         where
-            (newCards, newGen) = newDeck $ _randomGenerator gs
-            (shuffledDeck, shuffledGen) = shuffle (tail $ _discardPile gs) (_randomGenerator gs)
+            (newCards, newGen) = newDeck $ randomGenerator gs
+            (shuffledDeck, shuffledGen) = shuffle (tail $ discardPile gs) (randomGenerator gs)
 
 takeMultipleCards :: GameState -> Int -> ([Card], GameState)
 takeMultipleCards gs 0 = ([], gs)
@@ -83,7 +83,7 @@ placeCard :: GameState -> CardPlacement -> GameState
 placeCard gs cardPlacement = addAfterEffectsOfCard finalGs card
     where
         card = getCardFromPlacement cardPlacement
-        cardDiscardedGs = gs{_discardPile = card : _discardPile gs}
+        cardDiscardedGs = gs{discardPile = card : discardPile gs}
         finalGs = cardDiscardedGs{topCardPlacement = cardPlacement}
 
 placesCard :: Player -> Card -> GameState -> Writer [LogMessage] (Player, GameState)
@@ -96,10 +96,10 @@ placesCard pl card gs = do
 
 
 addAfterEffectsOfCard :: GameState -> Card -> GameState
-addAfterEffectsOfCard gs card = gs{_afterEffects = generateAfterEffects card ++ _afterEffects gs}
+addAfterEffectsOfCard gs card = gs{afterEffects = generateAfterEffects card ++ afterEffects gs}
 
 clearAfterEffects :: GameState -> GameState
-clearAfterEffects gs = gs{_afterEffects = []}
+clearAfterEffects gs = gs{afterEffects = []}
 
 applyAfterEffects :: Player -> GameState -> Writer [LogMessage] (Bool, (Player, GameState))
 applyAfterEffects pl gs = do
@@ -110,7 +110,7 @@ applyAfterEffects pl gs = do
     return (skipsTurn, (newPl, clearAfterEffects newGs))
     where
         skipsTurn = NoTurn `elem` effects
-        effects = _afterEffects gs
+        effects = afterEffects gs
         cardsToDraw = sumDrawCards effects
 
 placeCardIfPossible :: Player -> GameState -> Writer [LogMessage] (Bool, (Player, GameState))

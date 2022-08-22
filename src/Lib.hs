@@ -11,7 +11,7 @@ import qualified Data.Bifunctor as BF
 
 import Card(Color (..), Card (..), canPlace, cardColor, cardNumber)
 import Player(Player (..), takeCardToHand, haveWon, choose, playerId)
-import GameState(GameState (..), _deck, _discardPile, _afterEffects, takeCardFromGameState, canPlaceFromGameState, fillWithCardsFromGameState, applyAfterEffects, placeCardIfPossible, playerDrawCard)
+import GameState(GameState (..), deck, discardPile, afterEffects, takeCardFromGameState, canPlaceFromGameState, fillWithCardsFromGameState, applyAfterEffects, placeCardIfPossible, playerDrawCard)
 import Control.Monad.Writer (WriterT, Writer, MonadWriter (tell), runWriter)
 import GameLog (LogMessage (SkippedTurn, StartOfTurn, WonGame, EndOfTurn))
 import Debug.Trace (trace, traceId, traceM)

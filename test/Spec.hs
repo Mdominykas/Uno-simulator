@@ -12,7 +12,7 @@ import System.Random (mkStdGen, StdGen, Random (randomR))
 import Test.HUnit( assertEqual, runTestTT, Counts, Test(TestList, TestCase) )
 
 sampleGameState :: GameState
-sampleGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [] }
+sampleGameState = GameState{deck = [Card Red 5, Card Blue 2, Card Green 3], discardPile = [Card Blue 5, Card Yellow 8], randomGenerator = mkStdGen 42, afterEffects = [] }
 
 rngAfterUses :: StdGen -> Int -> StdGen
 rngAfterUses rng 0 = rng
@@ -89,7 +89,7 @@ test_PlaceCardIfPossible_WhenCanPlace = TestCase (assertEqual "player plays card
     where
         (hasPlaced, (newPl, newGs)) = fst $ runWriter $ placeCardIfPossible samplePlayer1 sampleGameState
         testResult = (hasPlaced, (comparablePlayerParts newPl, newGs))
-        correctGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = []}
+        correctGameState = GameState{deck = [Card Red 5, Card Blue 2, Card Green 3], discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], randomGenerator = mkStdGen 42, afterEffects = []}
         correctPlayer = Player{playerId = 1, cards = [Card Blue 2], choose = chooseFirstMatching }
         correctResult = (True, (comparablePlayerParts correctPlayer, correctGameState))
 
@@ -98,7 +98,7 @@ test_PlaceCardIfPossible_WhenCanNotPlace = TestCase (assertEqual "player plays c
     where
         (hasPlaced, (newPl, newGs)) = fst $ runWriter $ placeCardIfPossible samplePlayer1 sampleGameState
         testResult = (hasPlaced, (comparablePlayerParts newPl, newGs))
-        correctGameState = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = []}
+        correctGameState = GameState{deck = [Card Red 5, Card Blue 2, Card Green 3], discardPile = [Card Red 5, Card Blue 5, Card Yellow 8], randomGenerator = mkStdGen 42, afterEffects = []}
         correctPlayer = Player{playerId = 1, cards = [Card Blue 2], choose = chooseFirstMatching }
         correctResult = (True, (comparablePlayerParts correctPlayer, correctGameState))
 
@@ -109,13 +109,13 @@ testListPlaceCardIfPossible = [test_PlaceCardIfPossible_WhenCanPlace]
 test_AddAfterEffectsToGameState_WhenNoneAdded :: Test
 test_AddAfterEffectsToGameState_WhenNoneAdded = TestCase (assertEqual "none afterEffects are added incorrectly" correctResult testResult)
     where
-        correctResult = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [] }
+        correctResult = GameState{deck = [Card Red 5, Card Blue 2, Card Green 3], discardPile = [Card Blue 5, Card Yellow 8], randomGenerator = mkStdGen 42, afterEffects = [] }
         testResult = addAfterEffectsToGameState sampleGameState []
 
 test_AddAfterEffectsToGameState_WhenMultipleAdded :: Test
 test_AddAfterEffectsToGameState_WhenMultipleAdded = TestCase (assertEqual "multiple afterEffects are added incorrectly" correctResult testResult)
     where
-        correctResult = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [NoTurn, Draw 5, NoTurn, Draw 4] }
+        correctResult = GameState{deck = [Card Red 5, Card Blue 2, Card Green 3], discardPile = [Card Blue 5, Card Yellow 8], randomGenerator = mkStdGen 42, afterEffects = [NoTurn, Draw 5, NoTurn, Draw 4] }
         testResult = addAfterEffectsToGameState sampleGameState [NoTurn, Draw 5, NoTurn, Draw 4]
 
 testListAddAfterEffectsToGameState :: [Test]
@@ -125,19 +125,19 @@ testListAddAfterEffectsToGameState = [test_AddAfterEffectsToGameState_WhenNoneAd
 test_AddAfterEffectsOfCard_CardWithNoAfterEffect :: Test
 test_AddAfterEffectsOfCard_CardWithNoAfterEffect = TestCase (assertEqual "added no efects of simpleCard" correctResult testResult)
     where
-        correctResult = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [] }
+        correctResult = GameState{deck = [Card Red 5, Card Blue 2, Card Green 3], discardPile = [Card Blue 5, Card Yellow 8], randomGenerator = mkStdGen 42, afterEffects = [] }
         testResult = addAfterEffectsOfCard sampleGameState (Card Red 3)
 
 test_AddAfterEffectsOfCard_SkipTurnCard :: Test
 test_AddAfterEffectsOfCard_SkipTurnCard = TestCase (assertEqual "added no efects of simpleCard" correctResult testResult)
     where
-        correctResult = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [NoTurn] }
+        correctResult = GameState{deck = [Card Red 5, Card Blue 2, Card Green 3], discardPile = [Card Blue 5, Card Yellow 8], randomGenerator = mkStdGen 42, afterEffects = [NoTurn] }
         testResult = addAfterEffectsOfCard sampleGameState (SkipTurn Green)
 
 test_AddAfterEffectsOfCard_DrawCard :: Test
 test_AddAfterEffectsOfCard_DrawCard = TestCase (assertEqual "added no efects of simpleCard" correctResult testResult)
     where
-        correctResult = GameState{_deck = [Card Red 5, Card Blue 2, Card Green 3], _discardPile = [Card Blue 5, Card Yellow 8], _randomGenerator = mkStdGen 42, _afterEffects = [NoTurn, Draw 2] }
+        correctResult = GameState{deck = [Card Red 5, Card Blue 2, Card Green 3], discardPile = [Card Blue 5, Card Yellow 8], randomGenerator = mkStdGen 42, afterEffects = [NoTurn, Draw 2] }
         testResult = addAfterEffectsOfCard sampleGameState (PlusTwo Yellow)
 
 test_ApplyAfterEffects_WhenEmpty :: Test
