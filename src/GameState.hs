@@ -104,8 +104,8 @@ clearAfterEffects gs = gs{afterEffects = []}
 applyAfterEffects :: Player -> GameState -> Writer [LogMessage] (Bool, (Player, GameState))
 applyAfterEffects pl gs = do
     if skipsTurn
-        then tell [SkippedTurn $ playerId pl]
-        else tell []
+       then tell [SkippedTurn $ playerId pl]
+       else tell []
     (newPl, newGs) <- playerDrawCards (pl, gs) cardsToDraw
     return (skipsTurn, (newPl, clearAfterEffects newGs))
     where
