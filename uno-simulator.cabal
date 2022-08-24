@@ -32,6 +32,7 @@ library
       GameLog
       GameState
       Lib
+      LogChecker
       Player
       Utils
   other-modules:
@@ -41,8 +42,10 @@ library
   build-depends:
       HUnit >=1.6.0.0
     , base >=4.7 && <5
+    , containers >=0.4.0.0
     , lens
     , mtl >=2.2.2
+    , multiset >=0.3.4.3
     , random >=1.2
   default-language: Haskell2010
 
@@ -56,8 +59,10 @@ executable uno-simulator-exe
   build-depends:
       HUnit >=1.6.0.0
     , base >=4.7 && <5
+    , containers >=0.4.0.0
     , lens
     , mtl
+    , multiset >=0.3.4.3
     , random >=1.2
     , uno-simulator
   default-language: Haskell2010
@@ -73,8 +78,10 @@ test-suite uno-simulator-test
   build-depends:
       HUnit
     , base >=4.7 && <5
+    , containers >=0.4.0.0
     , lens
     , mtl >=2.2.2
+    , multiset >=0.3.4.3
     , random >=1.2
     , uno-simulator
   default-language: Haskell2010

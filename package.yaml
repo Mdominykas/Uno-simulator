@@ -25,7 +25,8 @@ dependencies:
 - mtl >= 2.2.2
 - lens
 - HUnit >= 1.6.0.0
-
+- containers >= 0.4.0.0
+- multiset >= 0.3.4.3
 
 library:
   source-dirs: src

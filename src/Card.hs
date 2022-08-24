@@ -7,7 +7,7 @@ data Color = Red | Green | Blue | Yellow | Black
     deriving (Show, Eq, Ord)
 
 data Card = Card Color Int | PlusTwo Color | SkipTurn Color | ChangeColor | PlusFour
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
 
 cardColor :: Card -> Color
 cardColor (Card col num) = col
