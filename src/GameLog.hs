@@ -5,7 +5,8 @@ import Card (Card, Color)
 import CardPlacement (CardPlacement(..))
 import Control.Monad.Writer
 
-data LogMessage = PlacedCard PlayerId Card 
+data LogMessage = GameStart
+                | PlacedCard PlayerId Card 
                 | DrewCard PlayerId Card 
                 | SkippedTurn PlayerId 
                 | ShuffledDeck
@@ -13,6 +14,7 @@ data LogMessage = PlacedCard PlayerId Card
                 | EndOfTurn PlayerId
                 | WonGame PlayerId
                 | ChangedColor PlayerId Color
+                | InitialCard Card
                 deriving (Show, Eq)
 
 createPlacementLog :: Player -> CardPlacement -> [LogMessage]

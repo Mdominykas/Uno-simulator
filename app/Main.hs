@@ -15,6 +15,7 @@ import Control.Monad ( when, forM_ )
 import Numeric (showFFloat)
 import Control.Monad.State (State, MonadState (get, put))
 import Control.Monad.State.Lazy (evalState)
+import LogChecker (checkLogs, LogState (hands))
 
 main :: IO ()
 main = do
@@ -45,19 +46,43 @@ findResults ch oldWinners = do
     when ((sum winners `mod` 1000) == 0) $ print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
     findResults ch winners
 
+createPlayers gameNum = rotate gameNum (generatePrimitivePlayers numberOfPlayers)
+
+analyzeLogs i logs gameNum = do
+    if i > length logs
+        then print "logs are correct' "
+        else do
+            case checkLogs (take i logs) (createPlayers gameNum) of
+                Left msg -> do
+                    print "incorrect logs:"
+                    print (take i logs)
+                    error msg
+                Right logState -> do 
+                    print ("logs of length " ++ show i ++ " are correct")
+                    -- print ("final state is: " ++ show logState)
+                    analyzeLogs (i + 1) logs gameNum
+
+
 playGame :: Chan Int -> Int -> IO ()
 playGame ch gameNum = do
     -- print $ "started a round number" ++ show gameNum
     ans <- oneGame gameNum
-    -- print $ "winner is " ++ show ans
+    -- print $ "winner is " ++ show ans 
     writeChan ch (fst ans)
     print $ snd ans
+    -- analizuoti visus ilgius
+    print "players are: "
+    print $ show $ createPlayers gameNum
+    analyzeLogs 0 (snd ans) gameNum
+    -- case checkLogs (snd ans) (createPlayers gameNum) of 
+        -- Left msg -> error msg
+        -- Right _ -> print "logs are correct"
+
     threadDelay 10 -- to slow down game playing, since otherwise findResults falls behind
     playGame ch (gameNum + 1)
 
 oneGame gameNum = do
     let stdGen = mkStdGen gameNum
-    let noCardPlayers = rotate gameNum (generatePrimitivePlayers numberOfPlayers)
-    let initialGameState = createStartingGameState stdGen
-    let ans = findWinner noCardPlayers initialGameState
+    let noCardPlayers = createPlayers gameNum
+    let ans = findWinner noCardPlayers stdGen
     return ans

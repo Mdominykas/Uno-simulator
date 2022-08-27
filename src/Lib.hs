@@ -11,9 +11,9 @@ import qualified Data.Bifunctor as BF
 
 import Card(Color (..), Card (..), canPlace, cardColor, cardNumber)
 import Player(Player (..), takeCardToHand, haveWon, choose, playerId)
-import GameState(GameState (..), deck, discardPile, afterEffects, takeCardFromGameState, canPlaceFromGameState, fillWithCardsFromGameState, applyAfterEffects, placeCardIfPossible, playerDrawCard, playerDrawCards)
+import GameState(GameState (..), deck, discardPile, afterEffects, takeCardFromGameState, canPlaceFromGameState, fillWithCardsFromGameState, applyAfterEffects, placeCardIfPossible, playerDrawCard, playerDrawCards, createStartingGameState)
 import Control.Monad.Writer (WriterT, Writer, MonadWriter (tell), runWriter)
-import GameLog (LogMessage (SkippedTurn, StartOfTurn, WonGame, EndOfTurn))
+import GameLog (LogMessage (SkippedTurn, StartOfTurn, WonGame, EndOfTurn, GameStart))
 import Debug.Trace (trace, traceId, traceM)
 import Control.Monad.Writer (replicateM)
 import Control.Monad (replicateM_)
@@ -33,28 +33,34 @@ makeMove pl gs = do
             (_, (finalPlayer, finalGameState)) <- placeCardIfPossible playerHavingDrawn gameStateAfterDraw
             return (finalPlayer, finalGameState)
 
-
-findWinner :: [Player] -> GameState -> (Int, [LogMessage])
+findWinner :: [Player] -> StdGen -> (Int, [LogMessage])
 findWinner noCardPlayers initialGameState = runWriter $ findWinner' (initialGameState, noCardPlayers)
 
-findWinner' :: (GameState, [Player]) -> Writer [LogMessage] Int
-findWinner' (initialGameState, noCardPlayers) = do
-    (players1, gameState1) <- foldlM (\(oldPl, gs) player -> do
+findWinner' :: (StdGen, [Player]) -> Writer [LogMessage] Int
+findWinner' (stdGen, noCardPlayers) = do
+    initialGameState <- createStartingGameState stdGen
+    (preparedPlayers, gameState1) <- foldlM (\(oldPl, gs) player -> do
         (newPl, newGs) <- playerDrawCards (player, gs) startingNumberOfCards
-        return (newPl : oldPl, newGs)) ([], initialGameState) noCardPlayers
+        return (oldPl ++ [newPl], newGs)) ([], initialGameState) noCardPlayers
 
-    playTurnByTurn (gameState1,players1)
+    -- tell [WonGame (playerId $ head players1)]
+
+    tell [GameStart]
+
+    playTurnByTurn (gameState1, preparedPlayers)
 
 playTurnByTurn :: (GameState, [Player]) -> Writer [LogMessage] Int
 playTurnByTurn (curGs, players) = do
     let curPl = head players
         plId = playerId curPl
 
+    tell [StartOfTurn plId]
     (skipsTurn, (newPl, newGs)) <- applyAfterEffects curPl curGs
     if skipsTurn 
-        then playTurnByTurn (newGs, tail players ++ [newPl])
+        then do
+            tell [EndOfTurn plId]
+            playTurnByTurn (newGs, tail players ++ [newPl])
         else do
-            tell [StartOfTurn plId]
             (newPl, newGs) <- makeMove curPl curGs
             if haveWon newPl 
                 then do 

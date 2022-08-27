@@ -9,7 +9,7 @@ import qualified Data.Bifunctor as BF
 import Constants (startingNumberOfCards)
 import Data.Maybe (fromJust)
 import Control.Monad.Writer (Writer, MonadWriter (tell))
-import GameLog (LogMessage (SkippedTurn, DrewCard, PlacedCard), createPlacementLog)
+import GameLog (LogMessage (..), createPlacementLog)
 import CardPlacement (CardPlacement (Normal, WithColorChange), placementFits, canChangeColor, getCardFromPlacement)
 import Debug.Trace (trace, traceM)
 
@@ -29,20 +29,26 @@ createPlacement pl card =
         else
             Normal card
 
-selectStartingCard :: [Card] -> ([Card], [Card])
-selectStartingCard cds = if canChangeColor card then (tailDeck, tailDiscardPile ++ [card]) else (tail cds, [card])
-    where
-        card = head cds
-        (tailDeck, tailDiscardPile) = selectStartingCard (tail cds)
+selectStartingCard :: [Card] -> Writer [LogMessage] ([Card], [Card])
+selectStartingCard cds = do
+    tell [InitialCard card]
+    if canChangeColor card 
+        then do
+            (tailDeck, tailDiscardPile) <- selectStartingCard (tail cds)
+            return (tailDeck, tailDiscardPile ++ [card]) 
+        else return (tail cds, [card])
+        where
+            card = head cds
 
 extractTopCardPlacement :: Card -> CardPlacement
 extractTopCardPlacement card = if canChangeColor card then error "gameState cannot choose color of card" else Normal card
 
-createStartingGameState :: StdGen -> GameState
-createStartingGameState rng = GameState {deck = startingDeck, discardPile = startingDiscardPile, randomGenerator = newRng, afterEffects = [], topCardPlacement = extractTopCardPlacement (head startingDiscardPile)}
+createStartingGameState :: StdGen -> Writer [LogMessage] GameState
+createStartingGameState rng = do
+    (startingDeck, startingDiscardPile) <- selectStartingCard cds
+    return GameState {deck = startingDeck, discardPile = startingDiscardPile, randomGenerator = newRng, afterEffects = [], topCardPlacement = extractTopCardPlacement (head startingDiscardPile)}
     where
         (cds, newRng) = newDeck rng
-        (startingDeck, startingDiscardPile) = selectStartingCard cds
 
 takeCardFromGameState :: GameState -> (Card, GameState)
 takeCardFromGameState gs
