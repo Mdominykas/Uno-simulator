@@ -4,7 +4,7 @@ import Data.MultiSet (MultiSet, member)
 import qualified Data.MultiSet as MultiSet
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
-import Card(Card (..), Color)
+import Card(Card (..), Color, hasNonBlackColor, cardColor, cardNumber)
 import Player (PlayerId, Player (..))
 import GameLog (LogMessage(..))
 import Data.Maybe (isNothing, isJust, fromJust)
@@ -23,6 +23,9 @@ instance Show Hand where
 emptyHand :: Hand
 emptyHand = Hand MultiSet.empty
 
+data PreviousPlacement = NotSelectedColor | SelectedColor Color | SimpleCard Card
+    deriving (Eq)
+
 data LogState = LogState
     {
     hands :: Map PlayerId Hand,
@@ -31,7 +34,8 @@ data LogState = LogState
     hasToDraw :: Maybe (PlayerId, Int),
     changedColor :: Maybe Color,
     needsToSetColor :: Bool,
-    orderOfPlayers :: [PlayerId]
+    orderOfPlayers :: [PlayerId],
+    previousPlacement :: PreviousPlacement
     }
 
 instance Show LogState where
@@ -62,7 +66,8 @@ createInitialLogState playerOrder =
     hasToDraw = Nothing,
     changedColor = Nothing,
     needsToSetColor = False,
-    orderOfPlayers = playerOrder}
+    orderOfPlayers = playerOrder,
+    previousPlacement = NotSelectedColor}
 
 addSkipping :: LogState -> Card -> LogState
 addSkipping logState card = case card of
@@ -123,7 +128,18 @@ correctFinalState logState =
                 handsList = Map.elems (hands logState)
                 emptyHandCount = length [h | Hand h <- handsList, MultiSet.null h]
 
--- couldPlaced = 
+couldPlaced :: LogState -> Card -> Bool
+couldPlaced logState card = case previousPlacement logState of
+    NotSelectedColor -> False
+    SelectedColor col -> not (hasNonBlackColor card) || (cardColor card == col)
+    SimpleCard prevCard -> (cardNumber card == cardNumber prevCard) || (cardColor card == cardColor prevCard) || not (hasNonBlackColor card)
+
+updatePreviousPlacementFromCard :: LogState -> Card -> Either [Char] LogState
+updatePreviousPlacementFromCard logState card = do
+    unless (couldPlaced logState card) (Left impossibleCard)
+    if hasNonBlackColor card
+        then Right logState{previousPlacement = SimpleCard card}
+        else Right logState{previousPlacement = NotSelectedColor}
 
 playerHadCard :: LogState -> Int -> Card -> Either [Char] Bool
 playerHadCard logState idOfPlayer card = case maybePlayer of
@@ -135,19 +151,20 @@ playerHadCard logState idOfPlayer card = case maybePlayer of
 endOfTurnStateUpdate :: LogState -> Int -> Either [Char] LogState
 endOfTurnStateUpdate logState plId = do
     drewRequiredCards logState
-    let skipFixedState = if hasToSkip logState == Just plId 
+    let skipFixedState = if hasToSkip logState == Just plId
             then logState{hasToSkip = Nothing}
             else logState
-    let drawFixedState = if isJust (hasToDraw skipFixedState) && (fst . fromJust) (hasToDraw skipFixedState) == plId 
+    let drawFixedState = if isJust (hasToDraw skipFixedState) && (fst . fromJust) (hasToDraw skipFixedState) == plId
         then skipFixedState{hasToDraw = Nothing}
         else skipFixedState
+    when (previousPlacement logState == NotSelectedColor) (Left colorNotSelected)
     Right $ rotatePlayerOrder drawFixedState
 
 updateRemainingDraws :: LogState -> PlayerId -> Either [Char] LogState
 updateRemainingDraws logState plId = case hasToDraw logState of
     Nothing -> Right logState
     Just (drawingPlId, cardCount) ->
-        if plId == drawingPlId 
+        if plId == drawingPlId
             then Right logState{hasToDraw = Just (drawingPlId, cardCount - 1)}
             else Left wrongPlayerDrawn
 
@@ -178,7 +195,8 @@ checkLogFromState logState (PlacedCard plId card : remLogs) = do
     playerHadCard logState plId card
     skippedPlayerDoesNotPlay logState plId
     newLogState <- removeCardFromLogStateHand cardProcessedState plId card
-    checkLogFromState newLogState remLogs
+    finalLogState <- updatePreviousPlacementFromCard newLogState card
+    checkLogFromState finalLogState remLogs
         where cardProcessedState = processCard logState card
 checkLogFromState logState (SkippedTurn plId : remLogs) = do
     logStatePlayerIdMatches logState plId
@@ -192,9 +210,10 @@ checkLogFromState logState (WonGame plId : remLogs) = do
         else Left wrongPlayerWon
 checkLogFromState logState (ChangedColor plId col : remLogs) = do
     unless (needsToSetColor logState) (Left changedColorWhenCouldNot)
-    checkLogFromState logState{needsToSetColor = False, changedColor = Just col} remLogs
+    unless (previousPlacement logState == NotSelectedColor) (Left changedColorWhenCouldNot)
+    checkLogFromState logState{needsToSetColor = False, changedColor = Just col, previousPlacement = SelectedColor col} remLogs
 checkLogFromState logState (InitialCard card : remLogs) = do
-    checkLogFromState logState remLogs
+    checkLogFromState logState{previousPlacement = SimpleCard card} remLogs
 -- checkLogFromState logState logs = Left unexpectedLogType
 
 unexpectedLogType :: [Char]
@@ -227,9 +246,6 @@ handNotFound = "Hand does not exists in the state of gameLogs"
 changedColorWhenCouldNot :: [Char]
 changedColorWhenCouldNot = "Player changed color when he could not"
 
-placedImpossibleCard :: [Char]
-placedImpossibleCard = "Player placed card that was not possible"
-
 drewTooMany :: [Char]
 drewTooMany = "Player has drawn too many cards"
 
@@ -238,3 +254,9 @@ skippedMadeTurn = "Player that was skipped made a move"
 
 wrongPlayerDrawn :: [Char]
 wrongPlayerDrawn = "Wrong player has drawn cards"
+
+impossibleCard :: [Char]
+impossibleCard = "Player placed impossible card"
+
+colorNotSelected :: [Char]
+colorNotSelected = "Color was not selected"

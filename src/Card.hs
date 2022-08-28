@@ -23,6 +23,14 @@ cardNumber (SkipTurn _) = 11
 cardNumber ChangeColor = 12
 cardNumber PlusFour = 13
 
+hasNonBlackColor :: Card -> Bool
+hasNonBlackColor (Card _ num) = True
+hasNonBlackColor (PlusTwo _) = True
+hasNonBlackColor (SkipTurn _) = True
+hasNonBlackColor ChangeColor = False
+hasNonBlackColor PlusFour = False
+
+
 canPlace :: Card -> Card -> Bool
 canPlace deckCard playerCard = (cardColor deckCard == cardColor playerCard) 
                     || (cardNumber deckCard == cardNumber playerCard)

@@ -8,6 +8,7 @@ data CardPlacement = Normal Card | WithColorChange Card Color
 
 canChangeColor :: Card -> Bool
 canChangeColor ChangeColor = True
+canChangeColor PlusFour = True
 canChangeColor _ = False
 
 placementFits :: CardPlacement -> Card -> Bool
