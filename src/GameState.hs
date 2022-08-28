@@ -1,6 +1,6 @@
 module GameState where
 
-import Card(Color (..), Card (..), canPlace, cardColor, cardNumber, newDeck)
+import Card(Color (..), Card (..), canPlace, cardColor, cardNumber, newDeck, isChangingDirection)
 import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId)
 import System.Random (StdGen)
 import AfterEffect (AfterEffect (..), sumDrawCards, generateAfterEffects)
@@ -52,7 +52,7 @@ createStartingGameState rng = do
 
 takeCardFromGameState :: GameState -> (Card, GameState)
 takeCardFromGameState gs
-    | null (deck gs) && null (discardPile gs) = error "I didn't want to take new deck" --takeCardFromGameState gs{deck = tail newCards, discardPile = [head newCards], randomGenerator = newGen}
+    | null (deck gs) && null (discardPile gs) = error "Unclear what to do when there are no cards left" --takeCardFromGameState gs{deck = tail newCards, discardPile = [head newCards], randomGenerator = newGen}
     | null (deck gs) = takeCardFromGameState gs{deck = shuffledDeck, discardPile = [head $ discardPile gs], randomGenerator = shuffledGen}
     | otherwise = (head $ deck gs, gs{deck = tail $ deck gs})
         where
@@ -119,12 +119,13 @@ applyAfterEffects pl gs = do
         effects = afterEffects gs
         cardsToDraw = sumDrawCards effects
 
-placeCardIfPossible :: Player -> GameState -> Writer [LogMessage] (Bool, (Player, GameState))
+-- returns (Placed a card, card changes game direction, (Player, GameState))
+placeCardIfPossible :: Player -> GameState -> Writer [LogMessage] (Bool, Bool, (Player, GameState))
 placeCardIfPossible pl gs =  case selectedCard of
     Just card -> do
         (newPl, newGs) <- placesCard pl card gs
-        return (True, (newPl, newGs))
-    Nothing -> return (False, (pl, gs))
+        return (True, isChangingDirection card, (newPl, newGs))
+    Nothing -> return (False, False, (pl, gs))
     where
         selectedCard = choose pl (cards pl) (topCardPlacement gs)
 

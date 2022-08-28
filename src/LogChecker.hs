@@ -34,6 +34,8 @@ data LogState = LogState
     hasToDraw :: Maybe (PlayerId, Int),
     changedColor :: Maybe Color,
     needsToSetColor :: Bool,
+    waitingForReversal :: Bool,
+    needsToBeReversed :: Bool,
     orderOfPlayers :: [PlayerId],
     previousPlacement :: PreviousPlacement
     }
@@ -67,6 +69,8 @@ createInitialLogState playerOrder =
     changedColor = Nothing,
     needsToSetColor = False,
     orderOfPlayers = playerOrder,
+    waitingForReversal = False,
+    needsToBeReversed = False,
     previousPlacement = NotSelectedColor}
 
 addSkipping :: LogState -> Card -> LogState
@@ -88,8 +92,13 @@ addColorChange logState card = case card of
     PlusFour -> logState{needsToSetColor = True, changedColor = Nothing}
     _ -> logState{changedColor = Nothing}
 
+addReversing :: LogState -> Card -> LogState
+addReversing logState card = case card of
+    ReverseDirection _ -> logState{waitingForReversal = True}
+    _ -> logState
+
 processCard :: LogState -> Card -> LogState
-processCard logState card = addColorChange (addDrawing (addSkipping logState card) card) card
+processCard logState card = addReversing (addColorChange (addDrawing (addSkipping logState card) card) card) card
 
 rotatePlayerOrder :: LogState -> LogState
 rotatePlayerOrder logState = logState{orderOfPlayers = tail prevOrder ++ [head prevOrder]}
@@ -157,8 +166,12 @@ endOfTurnStateUpdate logState plId = do
     let drawFixedState = if isJust (hasToDraw skipFixedState) && (fst . fromJust) (hasToDraw skipFixedState) == plId
         then skipFixedState{hasToDraw = Nothing}
         else skipFixedState
+    let rotationFixedState = if needsToBeReversed drawFixedState
+        then rotatePlayerOrder skipFixedState{needsToBeReversed = False, orderOfPlayers =  head (orderOfPlayers skipFixedState) : reverse (tail $ orderOfPlayers skipFixedState) }
+        else rotatePlayerOrder drawFixedState
+    when (waitingForReversal rotationFixedState) (Left orderWasNotRotated)
     when (previousPlacement logState == NotSelectedColor) (Left colorNotSelected)
-    Right $ rotatePlayerOrder drawFixedState
+    Right $ rotationFixedState
 
 updateRemainingDraws :: LogState -> PlayerId -> Either [Char] LogState
 updateRemainingDraws logState plId = case hasToDraw logState of
@@ -214,6 +227,9 @@ checkLogFromState logState (ChangedColor plId col : remLogs) = do
     checkLogFromState logState{needsToSetColor = False, changedColor = Just col, previousPlacement = SelectedColor col} remLogs
 checkLogFromState logState (InitialCard card : remLogs) = do
     checkLogFromState logState{previousPlacement = SimpleCard card} remLogs
+checkLogFromState logState (ReversedDirection plId : remLogs) = do
+    logStatePlayerIdMatches logState plId
+    checkLogFromState logState{waitingForReversal = False, needsToBeReversed = True} remLogs
 -- checkLogFromState logState logs = Left unexpectedLogType
 
 unexpectedLogType :: [Char]
@@ -260,3 +276,6 @@ impossibleCard = "Player placed impossible card"
 
 colorNotSelected :: [Char]
 colorNotSelected = "Color was not selected"
+
+orderWasNotRotated :: [Char]
+orderWasNotRotated = "Rotation card was placed, but it was not rotated"

@@ -13,7 +13,7 @@ import Card(Color (..), Card (..), canPlace, cardColor, cardNumber)
 import Player(Player (..), takeCardToHand, haveWon, choose, playerId)
 import GameState(GameState (..), deck, discardPile, afterEffects, takeCardFromGameState, canPlaceFromGameState, fillWithCardsFromGameState, applyAfterEffects, placeCardIfPossible, playerDrawCard, playerDrawCards, createStartingGameState)
 import Control.Monad.Writer (WriterT, Writer, MonadWriter (tell), runWriter)
-import GameLog (LogMessage (SkippedTurn, StartOfTurn, WonGame, EndOfTurn, GameStart))
+import GameLog (LogMessage (..))
 import Debug.Trace (trace, traceId, traceM)
 import Control.Monad.Writer (replicateM)
 import Control.Monad (replicateM_)
@@ -21,17 +21,18 @@ import Constants (startingNumberOfCards)
 import Control.Monad (foldM)
 import Data.Foldable (foldlM)
 
-makeMove :: Player -> GameState -> Writer [LogMessage] (Player, GameState)
+-- returns: (Changes-Direction, Player, GameState)
+makeMove :: Player -> GameState -> Writer [LogMessage] (Bool, Player, GameState)
 makeMove pl gs = do
 
-    (haveMadeMove, (newPl, newGs)) <- placeCardIfPossible pl gs
+    (haveMadeMove, changesDir, (newPl, newGs)) <- placeCardIfPossible pl gs
     if haveMadeMove 
         then 
-            return (newPl, newGs) 
+            return (changesDir, newPl, newGs) 
         else do
             (playerHavingDrawn, gameStateAfterDraw) <- playerDrawCard (pl, gs)
-            (_, (finalPlayer, finalGameState)) <- placeCardIfPossible playerHavingDrawn gameStateAfterDraw
-            return (finalPlayer, finalGameState)
+            (_, changesDir, (finalPlayer, finalGameState)) <- placeCardIfPossible playerHavingDrawn gameStateAfterDraw
+            return (changesDir, finalPlayer, finalGameState)
 
 findWinner :: [Player] -> StdGen -> (Int, [LogMessage])
 findWinner noCardPlayers initialGameState = runWriter $ findWinner' (initialGameState, noCardPlayers)
@@ -61,11 +62,12 @@ playTurnByTurn (curGs, players) = do
             tell [EndOfTurn plId]
             playTurnByTurn (newGs, tail players ++ [newPl])
         else do
-            (newPl, newGs) <- makeMove curPl curGs
+            (changesDir, newPl, newGs) <- makeMove curPl curGs
+            let changedPlayersTail = if changesDir then reverse (tail players) else tail players
             if haveWon newPl 
                 then do 
                     tell [WonGame plId]
                     return (playerId newPl) 
                 else do 
                     tell [EndOfTurn plId]
-                    playTurnByTurn (newGs, tail players ++ [newPl])
+                    playTurnByTurn (newGs, changedPlayersTail ++ [newPl])

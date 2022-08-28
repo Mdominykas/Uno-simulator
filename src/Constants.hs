@@ -15,6 +15,9 @@ plusTwoCount = 2
 numberedCardCount :: Int
 numberedCardCount = 2
 
+reverseDirectionCardCount :: Int
+reverseDirectionCardCount = 2
+
 changeColorCardCount :: Int
 changeColorCardCount = 4
 

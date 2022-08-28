@@ -58,6 +58,8 @@ analyzeLogs i logs gameNum = do
                     print (take i logs)
                     error msg
                 Right logState -> do 
+                    -- print "at the end logState was:"
+                    -- print (show logState)
                     print ("logs of length " ++ show i ++ " are correct")
                     -- print ("final state is: " ++ show logState)
                     analyzeLogs (i + 1) logs gameNum
