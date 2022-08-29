@@ -10,6 +10,10 @@ import GameLog (LogMessage(..))
 import Data.Maybe (isNothing, isJust, fromJust)
 import Control.Monad (when, unless)
 import Data.Either (isLeft, isRight)
+import Control.Monad.State ( evalState, State, runState )
+import Control.Monad.Except (throwError, ExceptT, runExceptT)
+import Control.Monad.State.Lazy ( get, put )
+import Control.Monad.State.Lazy (modify)
 
 newtype Hand = Hand (MultiSet Card)
 
@@ -50,12 +54,13 @@ addCardToLogStateHand :: LogState -> PlayerId -> Card -> LogState
 addCardToLogStateHand logState idOfPlayer card = logState{hands = Map.insert idOfPlayer (Hand (MultiSet.insert card prevHand)) (hands logState)}
     where Hand prevHand = hands logState ! idOfPlayer
 
-removeCardFromLogStateHand :: LogState -> PlayerId -> Card -> Either [Char] LogState
-removeCardFromLogStateHand logState idOfPlayer card = do
-    unless (Map.member idOfPlayer (hands logState)) (Left handNotFound)
-    unless (MultiSet.member card prevHand) (Left playerHadntCard)
-    Right logState{hands = Map.insert idOfPlayer (Hand (MultiSet.delete card prevHand)) (hands logState)}
-        where Hand prevHand = hands logState ! idOfPlayer
+removeCardFromLogStateHand :: PlayerId -> Card -> ExceptT [Char] (State LogState) ()
+removeCardFromLogStateHand idOfPlayer card = do
+    logState <- get
+    unless (Map.member idOfPlayer (hands logState)) (throwError handNotFound)
+    let Hand prevHand = hands logState ! idOfPlayer
+    unless (MultiSet.member card prevHand) (throwError playerHadntCard)
+    put logState{hands = Map.insert idOfPlayer (Hand (MultiSet.delete card prevHand)) (hands logState)}
 
 initialHands :: [PlayerId] -> Map PlayerId Hand
 initialHands = foldr (`Map.insert` emptyHand) Map.empty
@@ -73,32 +78,44 @@ createInitialLogState playerOrder =
     needsToBeReversed = False,
     previousPlacement = NotSelectedColor}
 
-addSkipping :: LogState -> Card -> LogState
-addSkipping logState card = case card of
-    PlusTwo _ -> logState{hasToSkip = Just (getNextPlayer logState)}
-    PlusFour -> logState{hasToSkip = Just (getNextPlayer logState)}
-    SkipTurn _ -> logState{hasToSkip = Just (getNextPlayer logState)}
-    _ -> logState
+addSkipping :: Card -> ExceptT [Char] (State LogState) ()
+addSkipping  card = do
+    logState <- get
+    case card of
+        PlusTwo _ -> put logState{hasToSkip = Just (getNextPlayer logState)}
+        PlusFour -> put logState{hasToSkip = Just (getNextPlayer logState)}
+        SkipTurn _ -> put logState{hasToSkip = Just (getNextPlayer logState)}
+        _ -> return ()
 
-addDrawing :: LogState -> Card -> LogState
-addDrawing logState card = case card of
-    PlusTwo _ -> logState{hasToDraw = Just (getNextPlayer logState, 2)}
-    PlusFour -> logState{hasToDraw = Just (getNextPlayer logState, 4)}
-    _ -> logState
+addDrawing :: Card -> ExceptT [Char] (State LogState) ()
+addDrawing card = do
+    logState <- get
+    case card of
+        PlusTwo _ -> put logState{hasToDraw = Just (getNextPlayer logState, 2)}
+        PlusFour -> put logState{hasToDraw = Just (getNextPlayer logState, 4)}
+        _ -> return ()
 
-addColorChange :: LogState -> Card -> LogState
-addColorChange logState card = case card of
-    ChangeColor -> logState{needsToSetColor = True, changedColor = Nothing}
-    PlusFour -> logState{needsToSetColor = True, changedColor = Nothing}
-    _ -> logState{changedColor = Nothing}
+addColorChange :: Card -> ExceptT [Char] (State LogState) ()
+addColorChange card = do
+    logState <- get
+    case card of
+        ChangeColor -> put logState{needsToSetColor = True, changedColor = Nothing}
+        PlusFour -> put logState{needsToSetColor = True, changedColor = Nothing}
+        _ -> put logState{changedColor = Nothing}
 
-addReversing :: LogState -> Card -> LogState
-addReversing logState card = case card of
-    ReverseDirection _ -> logState{waitingForReversal = True}
-    _ -> logState
+addReversing :: Card -> ExceptT [Char] (State LogState) ()
+addReversing card = do
+    logState <- get
+    case card of
+        ReverseDirection _ -> put logState{waitingForReversal = True}
+        _ -> return ()
 
-processCard :: LogState -> Card -> LogState
-processCard logState card = addReversing (addColorChange (addDrawing (addSkipping logState card) card) card) card
+processCard :: Card -> ExceptT [Char] (State LogState) ()
+processCard card = do
+    addReversing card
+    addColorChange card
+    addDrawing card
+    addSkipping card
 
 rotatePlayerOrder :: LogState -> LogState
 rotatePlayerOrder logState = logState{orderOfPlayers = tail prevOrder ++ [head prevOrder]}
@@ -111,31 +128,37 @@ getCurrentPlayer :: LogState -> PlayerId
 getCurrentPlayer logState = if null (orderOfPlayers logState) then error "incorrect number of players" else head $ orderOfPlayers logState
 
 checkLogs :: [LogMessage] -> [Player] -> Either [Char] LogState
-checkLogs logMessages playerOrder = checkLogFromState (createInitialLogState playerIds) logMessages
+checkLogs logMessages playerOrder = evalState (runExceptT (checkLogFromState logMessages)) (createInitialLogState playerIds)
     where
         playerIds = [playerId pl | pl <- playerOrder]
 
-logStatePlayerIdMatches :: LogState -> PlayerId -> Either [Char] Bool
-logStatePlayerIdMatches logState plId =
+-- checkLogs :: [LogMessage] -> [Player] -> Either [Char] LogState
+
+logStatePlayerIdMatches :: PlayerId -> ExceptT [Char] (State LogState) Bool
+logStatePlayerIdMatches plId = do
+    logState <- get
     if not (gameStarted logState) || head (orderOfPlayers logState) == plId
-        then Right True
-        else Left incorrectPlayerInLogs
+        then return True
+        else throwError incorrectPlayerInLogs
 
-drewRequiredCards :: LogState -> Either [Char] Bool
-drewRequiredCards logState =
+drewRequiredCards :: ExceptT [Char] (State LogState) Bool
+drewRequiredCards = do
+    logState <- get
+    let (pl, cardCount) = fromJust $ hasToDraw logState
     if isNothing (hasToDraw logState) || pl /= getCurrentPlayer logState || cardCount == 0
-        then Right True
-        else Left didNotDrewCards
-            where (pl, cardCount) = fromJust $ hasToDraw logState
+        then return True
+        else throwError didNotDrewCards
 
-correctFinalState :: LogState -> Either [Char] Bool
-correctFinalState logState =
-    if gameStarted logState && isRight (drewRequiredCards logState) && emptyHandCount == 1
-        then Right True
-        else Left incorrectFinalState
-            where
-                handsList = Map.elems (hands logState)
-                emptyHandCount = length [h | Hand h <- handsList, MultiSet.null h]
+checkFinalStateCorrectness :: ExceptT [Char] (State LogState) Bool
+checkFinalStateCorrectness = do
+    logState <- get
+    let handsList = Map.elems (hands logState)
+        emptyHandCount = length [h | Hand h <- handsList, MultiSet.null h]
+
+    drewReq <- drewRequiredCards
+    if gameStarted logState && drewReq && emptyHandCount == 1
+        then return True
+        else throwError incorrectFinalState
 
 couldPlaced :: LogState -> Card -> Bool
 couldPlaced logState card = case previousPlacement logState of
@@ -143,93 +166,114 @@ couldPlaced logState card = case previousPlacement logState of
     SelectedColor col -> not (hasNonBlackColor card) || (cardColor card == col)
     SimpleCard prevCard -> (cardNumber card == cardNumber prevCard) || (cardColor card == cardColor prevCard) || not (hasNonBlackColor card)
 
-updatePreviousPlacementFromCard :: LogState -> Card -> Either [Char] LogState
-updatePreviousPlacementFromCard logState card = do
-    unless (couldPlaced logState card) (Left impossibleCard)
+updatePreviousPlacementFromCard :: Card -> ExceptT [Char] (State LogState) ()
+updatePreviousPlacementFromCard card = do
+    logState <- get
+    unless (couldPlaced logState card) (throwError impossibleCard)
     if hasNonBlackColor card
-        then Right logState{previousPlacement = SimpleCard card}
-        else Right logState{previousPlacement = NotSelectedColor}
+        then put logState{previousPlacement = SimpleCard card}
+        else put logState{previousPlacement = NotSelectedColor}
 
-playerHadCard :: LogState -> Int -> Card -> Either [Char] Bool
-playerHadCard logState idOfPlayer card = case maybePlayer of
-    Nothing -> Left incorrectPlayerInLogs
-    Just (Hand cards) -> if MultiSet.member card cards then Right True else Left playerHadntCard
-    where
-        maybePlayer = Map.lookup idOfPlayer (hands logState)
+playerHadCard :: Int -> Card -> ExceptT [Char] (State LogState) Bool
+playerHadCard idOfPlayer card = do
+    logState <- get
+    let maybePlayer = Map.lookup idOfPlayer (hands logState)
+    case maybePlayer of
+        Nothing -> throwError incorrectPlayerInLogs
+        Just (Hand cards) -> if MultiSet.member card cards then return True else throwError playerHadntCard
 
-endOfTurnStateUpdate :: LogState -> Int -> Either [Char] LogState
-endOfTurnStateUpdate logState plId = do
-    drewRequiredCards logState
-    let skipFixedState = if hasToSkip logState == Just plId
-            then logState{hasToSkip = Nothing}
-            else logState
-    let drawFixedState = if isJust (hasToDraw skipFixedState) && (fst . fromJust) (hasToDraw skipFixedState) == plId
-        then skipFixedState{hasToDraw = Nothing}
-        else skipFixedState
-    let rotationFixedState = if needsToBeReversed drawFixedState
-        then rotatePlayerOrder skipFixedState{needsToBeReversed = False, orderOfPlayers =  head (orderOfPlayers skipFixedState) : reverse (tail $ orderOfPlayers skipFixedState) }
-        else rotatePlayerOrder drawFixedState
-    when (waitingForReversal rotationFixedState) (Left orderWasNotRotated)
-    when (previousPlacement logState == NotSelectedColor) (Left colorNotSelected)
-    Right $ rotationFixedState
+endOfTurnStateUpdate :: PlayerId -> ExceptT [Char] (State LogState) ()
+endOfTurnStateUpdate plId = do
+    drewRequiredCards
+    logState <- get
+    when (hasToSkip logState == Just plId) (put logState{hasToSkip = Nothing})
+    
+    logState <- get
+    when (isJust (hasToDraw logState) && (fst . fromJust) (hasToDraw logState) == plId) (put logState{hasToDraw = Nothing})
+    
+    logState <- get
+    when (needsToBeReversed logState) (put logState{needsToBeReversed = False, orderOfPlayers =  head (orderOfPlayers logState) : reverse (tail $ orderOfPlayers logState) })
+    modify rotatePlayerOrder
 
-updateRemainingDraws :: LogState -> PlayerId -> Either [Char] LogState
-updateRemainingDraws logState plId = case hasToDraw logState of
-    Nothing -> Right logState
-    Just (drawingPlId, cardCount) ->
-        if plId == drawingPlId
-            then Right logState{hasToDraw = Just (drawingPlId, cardCount - 1)}
-            else Left wrongPlayerDrawn
+    logState <- get
+    when (waitingForReversal logState) (throwError orderWasNotRotated)
+    when (previousPlacement logState == NotSelectedColor) (throwError colorNotSelected)
 
-skippedPlayerDoesNotPlay :: LogState -> PlayerId -> Either [Char] ()
-skippedPlayerDoesNotPlay logState plId = do
-    when (hasToSkip logState == Just plId) (Left skippedMadeTurn)
+updateRemainingDraws :: PlayerId ->  ExceptT [Char] (State LogState) LogState
+updateRemainingDraws plId = do
+    logState <- get
+    case hasToDraw logState of
+        Nothing -> return logState
+        Just (drawingPlId, cardCount) ->
+            if plId == drawingPlId
+                then return logState{hasToDraw = Just (drawingPlId, cardCount - 1)}
+                else throwError wrongPlayerDrawn
 
-checkLogFromState :: LogState -> [LogMessage] -> Either [Char] LogState
-checkLogFromState logState [] = Right logState
-checkLogFromState logState (GameStart : remLogs) = do
-    when (gameStarted logState) (Left gameAlreadyStarted)
-    checkLogFromState logState{gameStarted = True} remLogs
-checkLogFromState logState (StartOfTurn plId : remLogs) = do
-    logStatePlayerIdMatches logState plId
-    checkLogFromState logState remLogs
-checkLogFromState logState (EndOfTurn plId : remLogs) = do
-    logStatePlayerIdMatches logState plId
-    newLogState <- endOfTurnStateUpdate logState plId
-    checkLogFromState newLogState remLogs
-checkLogFromState logState (ShuffledDeck : remLogs) = do
-    checkLogFromState logState remLogs
-checkLogFromState logState (DrewCard plId card : remLogs) = do
-    logStatePlayerIdMatches logState plId
-    logState <- updateRemainingDraws logState plId
-    checkLogFromState (addCardToLogStateHand logState plId card) remLogs
-checkLogFromState logState (PlacedCard plId card : remLogs) = do
-    logStatePlayerIdMatches logState plId
-    playerHadCard logState plId card
-    skippedPlayerDoesNotPlay logState plId
-    newLogState <- removeCardFromLogStateHand cardProcessedState plId card
-    finalLogState <- updatePreviousPlacementFromCard newLogState card
-    checkLogFromState finalLogState remLogs
-        where cardProcessedState = processCard logState card
-checkLogFromState logState (SkippedTurn plId : remLogs) = do
-    logStatePlayerIdMatches logState plId
-    unless (hasToSkip logState == Just plId) (Left wrongPlayerSkipped)
-    checkLogFromState logState remLogs
-checkLogFromState logState (WonGame plId : remLogs) = do
-    logStatePlayerIdMatches logState plId
-    correctFinalState logState
+skippedPlayerDoesNotPlay :: PlayerId -> ExceptT [Char] (State LogState) ()
+skippedPlayerDoesNotPlay plId = do
+    logState <- get
+    when (hasToSkip logState == Just plId) (throwError skippedMadeTurn)
+
+checkLogFromState :: [LogMessage] -> ExceptT [Char] (State LogState) LogState
+checkLogFromState [] = do
+    get
+checkLogFromState (GameStart : remLogs) = do
+    logState <- get
+    when (gameStarted logState) (throwError gameAlreadyStarted)
+    put logState{gameStarted = True}
+    checkLogFromState remLogs
+checkLogFromState (StartOfTurn plId : remLogs) = do
+    logStatePlayerIdMatches  plId
+    checkLogFromState remLogs
+checkLogFromState (EndOfTurn plId : remLogs) = do
+    logState <- get
+    logStatePlayerIdMatches plId
+    endOfTurnStateUpdate plId
+    checkLogFromState remLogs
+checkLogFromState (ShuffledDeck : remLogs) = do
+    checkLogFromState remLogs
+checkLogFromState (DrewCard plId card : remLogs) = do
+    logState <- get
+    logStatePlayerIdMatches plId
+    logState <- updateRemainingDraws plId
+    put (addCardToLogStateHand logState plId card)
+    checkLogFromState remLogs
+checkLogFromState (PlacedCard plId card : remLogs) = do
+    logStatePlayerIdMatches  plId
+    playerHadCard plId card
+    skippedPlayerDoesNotPlay plId
+    logState <- get
+    processCard card
+    removeCardFromLogStateHand plId card
+    updatePreviousPlacementFromCard card
+    checkLogFromState remLogs
+checkLogFromState (SkippedTurn plId : remLogs) = do
+    logState <- get
+    logStatePlayerIdMatches plId
+    unless (hasToSkip logState == Just plId) (throwError wrongPlayerSkipped)
+    checkLogFromState remLogs
+checkLogFromState (WonGame plId : remLogs) = do
+    logState <- get
+    logStatePlayerIdMatches plId
+    checkFinalStateCorrectness
     if null remLogs
-        then Right logState
-        else Left wrongPlayerWon
-checkLogFromState logState (ChangedColor plId col : remLogs) = do
-    unless (needsToSetColor logState) (Left changedColorWhenCouldNot)
-    unless (previousPlacement logState == NotSelectedColor) (Left changedColorWhenCouldNot)
-    checkLogFromState logState{needsToSetColor = False, changedColor = Just col, previousPlacement = SelectedColor col} remLogs
-checkLogFromState logState (InitialCard card : remLogs) = do
-    checkLogFromState logState{previousPlacement = SimpleCard card} remLogs
-checkLogFromState logState (ReversedDirection plId : remLogs) = do
-    logStatePlayerIdMatches logState plId
-    checkLogFromState logState{waitingForReversal = False, needsToBeReversed = True} remLogs
+        then return logState
+        else throwError wrongPlayerWon
+checkLogFromState (ChangedColor plId col : remLogs) = do
+    logState <- get
+    unless (needsToSetColor logState) (throwError changedColorWhenCouldNot)
+    unless (previousPlacement logState == NotSelectedColor) (throwError changedColorWhenCouldNot)
+    put logState{needsToSetColor = False, changedColor = Just col, previousPlacement = SelectedColor col}
+    checkLogFromState remLogs
+checkLogFromState (InitialCard card : remLogs) = do
+    logState <- get
+    put logState{previousPlacement = SimpleCard card}
+    checkLogFromState remLogs
+checkLogFromState (ReversedDirection plId : remLogs) = do
+    logState <- get
+    logStatePlayerIdMatches plId
+    put logState{waitingForReversal = False, needsToBeReversed = True}
+    checkLogFromState remLogs
 -- checkLogFromState logState logs = Left unexpectedLogType
 
 unexpectedLogType :: [Char]
