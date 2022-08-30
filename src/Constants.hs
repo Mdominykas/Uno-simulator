@@ -1,7 +1,7 @@
 module Constants where
 
 startingNumberOfCards :: Int
-startingNumberOfCards = 4
+startingNumberOfCards = 7
 
 numberOfPlayers :: Int
 numberOfPlayers = 4

@@ -102,13 +102,6 @@ placesCard pl card gs = do
         cardPlacement = createPlacement pl card
         playerWithoutCard = pl{cards = removeOne card $ cards pl}
 
-
--- addAfterEffectsOfCard :: GameState -> Card -> GameState
--- addAfterEffectsOfCard gs card = gs{afterEffects = generateAfterEffects card ++ afterEffects gs}
-
--- clearAfterEffects :: GameState -> GameState
--- clearAfterEffects gs = gs{afterEffects = []}
-
 addActiveCard :: GameState -> Card -> GameState
 addActiveCard gs card = gs{activeCards = card : activeCards gs}
 
@@ -117,7 +110,6 @@ clearActiveCards gs = gs{activeCards = []}
 
 applyAfterEffects :: Player -> GameState -> Writer [LogMessage] (Bool, (Player, GameState))
 applyAfterEffects pl gs = do
-    -- traceM ("Will need to draw:" ++ show cardsToDraw)
     if skipsTurn
        then tell [SkippedTurn $ playerId pl]
        else tell []
@@ -137,8 +129,6 @@ placeCardIfPossible pl gs = case selectedCard of
     Nothing -> return (False, False, (pl, gs))
     where
         selectedCard = choose pl (cards pl) (topCardPlacement gs)
-
--- function trace is good for debugging (like print)
 
 addResponseToActive :: GameState -> Player -> Card -> Writer [LogMessage] (GameState, Player)
 addResponseToActive gs pl card = do

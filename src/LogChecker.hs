@@ -4,7 +4,7 @@ import Data.MultiSet (MultiSet, member)
 import qualified Data.MultiSet as MultiSet
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
-import Card(Card (..), Color, hasNonBlackColor, cardColor, cardNumber, isValidResponse)
+import Card(Card (..), Color (..), hasNonBlackColor, cardColor, cardNumber, isValidResponse)
 import Player (PlayerId, Player (..))
 import GameLog (LogMessage(..))
 import Data.Maybe (isNothing, isJust, fromJust)
@@ -278,6 +278,7 @@ checkLogFromState (ChangedColor plId col : remLogs) = do
     logState <- get
     unless (needsToSetColor logState) (throwError changedColorWhenCouldNot)
     unless (previousPlacement logState == NotSelectedColor) (throwError changedColorWhenCouldNot)
+    when (col == Black) (throwError choseBlackColor)
     put logState{needsToSetColor = False, changedColor = Just col, previousPlacement = SelectedColor col}
     checkLogFromState remLogs
 checkLogFromState (InitialCard card : remLogs) = do
@@ -339,3 +340,6 @@ colorNotSelected = "Color was not selected"
 
 orderWasNotRotated :: [Char]
 orderWasNotRotated = "Rotation card was placed, but it was not rotated"
+
+choseBlackColor :: [Char]
+choseBlackColor = "Player chosed black color"

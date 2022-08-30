@@ -44,8 +44,6 @@ findWinner' (stdGen, noCardPlayers) = do
         (newPl, newGs) <- playerDrawCards (player, gs) startingNumberOfCards
         return (oldPl ++ [newPl], newGs)) ([], initialGameState) noCardPlayers
 
-    -- tell [WonGame (playerId $ head players1)]
-
     tell [GameStart]
 
     playTurnByTurn (gameState1, preparedPlayers)
@@ -70,24 +68,18 @@ playTurnByTurn (curGs, players) = do
     let curPl = head players
         plId = playerId curPl
 
-    -- galima perrasyti su when
     if canRespondToActiveCard (activeCards curGs)
         then
             case respondToActive curPl (cards curPl) (head $ activeCards curGs) of
                 Nothing -> do
                     tell [StartOfTurn plId]
-                    -- traceM ("Player " ++ show plId ++ " does not responds")
-                    -- traceM ("Activation cards: " ++ show (activeCards curGs))
                     (skipsTurn, (newPl, newGs)) <- applyAfterEffects curPl curGs
                     checkForWinnersAndPlayFurther newPl newGs (tail players)
                 Just card -> do
                     tell [StartOfTurn plId]
-                    -- traceM ("Player " ++ show plId ++ " does responds")
-                    -- traceM ("Activation cards (before responce): " ++ show (activeCards curGs))
                     (newGs, newPl) <- addResponseToActive curGs curPl card
                     checkForWinnersAndPlayFurther newPl newGs (tail players)
         else do
-            -- traceM (show plId ++ " - just a simple turn")
             tell [StartOfTurn plId]
             (skipsTurn, (newPl, newGs)) <- applyAfterEffects curPl curGs
             if skipsTurn

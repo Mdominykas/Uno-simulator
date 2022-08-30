@@ -1,4 +1,5 @@
 module CardPlacement where
+    
 import Card (Card(..), Color (Black), canPlace, cardColor)
 import Control.Lens (view)
 import Debug.Trace (trace)

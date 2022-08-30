@@ -1,32 +1,6 @@
-module Player where
-
-import Card ( Card (..), canPlace, Color (Yellow, Black), cardColor )
-import Data.List (intercalate)
+module PlayingStrategies.PrimitivePlayer where
+import Card
 import CardPlacement (CardPlacement, placementFits)
-
-type PlayerId = Int
-
-data Player = Player
-    {
-    playerId :: PlayerId,
-    cards :: [Card],
-    choose :: [Card] -> CardPlacement -> Maybe Card,
-    chooseColor :: [Card] -> Color,
-    respondToActive :: [Card] -> Card -> Maybe Card
-    -- select :: [Card] -> Color
-    }
-
-instance Eq Player
-    where (==) pl1 pl2 = (playerId pl1 == playerId pl2) && (cards pl1 == cards pl2)
-
-instance Show Player where
-    show pl = show (playerId pl) ++ ": ["++ intercalate ", " (map show (cards pl)) ++ "]"
-
-takeCardToHand :: Player -> Card -> Player
-takeCardToHand pl card = pl{cards = card : cards pl} 
-
-haveWon :: Player -> Bool
-haveWon pl = null (cards pl)
 
 chooseFirstMatching :: [Card] -> CardPlacement -> Maybe Card
 chooseFirstMatching cards topPlacedCard = case [card | card <- cards, placementFits topPlacedCard card] of

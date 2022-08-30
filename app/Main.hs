@@ -4,7 +4,8 @@ import qualified Control.Monad.State.Lazy as ST (get, put, runState, State)
 
 import Control.Concurrent (newChan, Chan, readChan, writeChan, forkIO, threadDelay)
 import Lib (makeMove, findWinner)
-import Player(Player (..), takeCardToHand, haveWon, cards, playerId, generatePrimitivePlayers)
+import Player(Player (..), takeCardToHand, haveWon, cards, playerId)
+import PlayerGenerator(generatePrimitivePlayers, generateAllPrimitiveOneNasty)
 import GameState(fillWithCardsFromGameState, createStartingGameState)
 import Constants(numberOfPlayers, startingNumberOfCards)
 import Utils(incrementByIndex, rotate)
@@ -58,18 +59,13 @@ analyzeLogs i logs gameNum = do
                     print (take i logs)
                     error msg
                 Right logState -> do 
-                    -- print "at the end logState was:"
-                    -- print (show logState)
                     print ("logs of length " ++ show i ++ " are correct")
-                    -- print ("final state is: " ++ show logState)
                     analyzeLogs (i + 1) logs gameNum
 
 
 playGame :: Chan Int -> Int -> IO ()
 playGame ch gameNum = do
-    -- print $ "started a round number" ++ show gameNum
     ans <- oneGame gameNum
-    -- print $ "winner is " ++ show ans 
 
     writeChan ch (fst ans)
 
@@ -82,9 +78,9 @@ playGame ch gameNum = do
 
     case checkLogs (snd ans) (createPlayers gameNum) of 
         Left msg -> error msg
-        Right _ -> threadDelay 1
+        Right _ -> threadDelay 0
 
-    threadDelay 10 -- to slow down game playing, since otherwise findResults falls behind
+    threadDelay 1 -- to slow down game playing
     playGame ch (gameNum + 1)
 
 oneGame gameNum = do

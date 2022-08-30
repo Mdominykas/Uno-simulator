@@ -44,6 +44,7 @@ canPlace deckCard playerCard =
     (cardNumber deckCard == cardNumber playerCard) || 
     (cardColor playerCard == Black)
 
+canBeResponded :: Card -> Bool
 canBeResponded PlusFour = True
 canBeResponded (PlusTwo _) = True
 canBeResponded _ = False
@@ -62,6 +63,7 @@ generateDeck = numberedCards ++ plusTwoCards ++ skipCards ++ reverseDirecionCard
 newDeck :: StdGen -> ([Card], StdGen)
 newDeck = shuffle generateDeck
 
+isValidResponse :: Card -> Card -> Bool
 isValidResponse PlusFour PlusFour = True
 isValidResponse (PlusTwo _) (PlusTwo _) = True
 isValidResponse _ _ = False
