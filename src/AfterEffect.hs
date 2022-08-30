@@ -18,3 +18,6 @@ generateAfterEffects (PlusTwo _) = [NoTurn, Draw 2]
 generateAfterEffects (ReverseDirection _) = []
 generateAfterEffects ChangeColor = []
 generateAfterEffects PlusFour = [NoTurn, Draw 4]
+
+generateAllAfterEffects :: [Card] -> [AfterEffect]
+generateAllAfterEffects cards = concat [generateAfterEffects card | card <- cards] 

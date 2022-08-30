@@ -70,15 +70,19 @@ playGame ch gameNum = do
     -- print $ "started a round number" ++ show gameNum
     ans <- oneGame gameNum
     -- print $ "winner is " ++ show ans 
+
     writeChan ch (fst ans)
-    print $ snd ans
+
     -- analizuoti visus ilgius
-    print "players are: "
-    print $ show $ createPlayers gameNum
-    analyzeLogs 0 (snd ans) gameNum
-    -- case checkLogs (snd ans) (createPlayers gameNum) of 
-        -- Left msg -> error msg
-        -- Right _ -> print "logs are correct"
+    -- print $ snd ans
+    -- print "players are: "
+    -- print $ show $ createPlayers gameNum
+    -- analyzeLogs 0 (snd ans) gameNum
+
+
+    case checkLogs (snd ans) (createPlayers gameNum) of 
+        Left msg -> error msg
+        Right _ -> threadDelay 1
 
     threadDelay 10 -- to slow down game playing, since otherwise findResults falls behind
     playGame ch (gameNum + 1)

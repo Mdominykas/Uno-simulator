@@ -3,7 +3,7 @@ module GameState where
 import Card(Color (..), Card (..), canPlace, cardColor, cardNumber, newDeck, isChangingDirection)
 import Player(Player (..), takeCardToHand, haveWon, cards, choose, playerId)
 import System.Random (StdGen)
-import AfterEffect (AfterEffect (..), sumDrawCards, generateAfterEffects)
+import AfterEffect (AfterEffect (..), sumDrawCards, generateAfterEffects, generateAllAfterEffects)
 import Utils (shuffle, removeOne)
 import qualified Data.Bifunctor as BF
 import Constants (startingNumberOfCards)
@@ -18,7 +18,7 @@ data GameState = GameState
     deck :: [Card],
     discardPile :: [Card],
     randomGenerator :: StdGen,
-    afterEffects :: [AfterEffect],
+    activeCards :: [Card],
     topCardPlacement :: CardPlacement
     } deriving(Eq, Show)
 
@@ -32,10 +32,10 @@ createPlacement pl card =
 selectStartingCard :: [Card] -> Writer [LogMessage] ([Card], [Card])
 selectStartingCard cds = do
     tell [InitialCard card]
-    if canChangeColor card 
+    if canChangeColor card
         then do
             (tailDeck, tailDiscardPile) <- selectStartingCard (tail cds)
-            return (tailDeck, tailDiscardPile ++ [card]) 
+            return (tailDeck, tailDiscardPile ++ [card])
         else return (tail cds, [card])
         where
             card = head cds
@@ -46,7 +46,7 @@ extractTopCardPlacement card = if canChangeColor card then error "gameState cann
 createStartingGameState :: StdGen -> Writer [LogMessage] GameState
 createStartingGameState rng = do
     (startingDeck, startingDiscardPile) <- selectStartingCard cds
-    return GameState {deck = startingDeck, discardPile = startingDiscardPile, randomGenerator = newRng, afterEffects = [], topCardPlacement = extractTopCardPlacement (head startingDiscardPile)}
+    return GameState {deck = startingDeck, discardPile = startingDiscardPile, randomGenerator = newRng, activeCards = [], topCardPlacement = extractTopCardPlacement (head startingDiscardPile)}
     where
         (cds, newRng) = newDeck rng
 
@@ -85,8 +85,10 @@ playerDrawCards (pl, gs) n = do
     (newPl, newGs) <- playerDrawCard (pl, gs)
     playerDrawCards (newPl, newGs) (n - 1)
 
+
+
 placeCard :: GameState -> CardPlacement -> GameState
-placeCard gs cardPlacement = addAfterEffectsOfCard finalGs card
+placeCard gs cardPlacement = addActiveCard finalGs card
     where
         card = getCardFromPlacement cardPlacement
         cardDiscardedGs = gs{discardPile = card : discardPile gs}
@@ -101,27 +103,34 @@ placesCard pl card gs = do
         playerWithoutCard = pl{cards = removeOne card $ cards pl}
 
 
-addAfterEffectsOfCard :: GameState -> Card -> GameState
-addAfterEffectsOfCard gs card = gs{afterEffects = generateAfterEffects card ++ afterEffects gs}
+-- addAfterEffectsOfCard :: GameState -> Card -> GameState
+-- addAfterEffectsOfCard gs card = gs{afterEffects = generateAfterEffects card ++ afterEffects gs}
 
-clearAfterEffects :: GameState -> GameState
-clearAfterEffects gs = gs{afterEffects = []}
+-- clearAfterEffects :: GameState -> GameState
+-- clearAfterEffects gs = gs{afterEffects = []}
+
+addActiveCard :: GameState -> Card -> GameState
+addActiveCard gs card = gs{activeCards = card : activeCards gs}
+
+clearActiveCards :: GameState -> GameState
+clearActiveCards gs = gs{activeCards = []}
 
 applyAfterEffects :: Player -> GameState -> Writer [LogMessage] (Bool, (Player, GameState))
 applyAfterEffects pl gs = do
+    -- traceM ("Will need to draw:" ++ show cardsToDraw)
     if skipsTurn
        then tell [SkippedTurn $ playerId pl]
        else tell []
     (newPl, newGs) <- playerDrawCards (pl, gs) cardsToDraw
-    return (skipsTurn, (newPl, clearAfterEffects newGs))
+    return (skipsTurn, (newPl, clearActiveCards newGs))
     where
         skipsTurn = NoTurn `elem` effects
-        effects = afterEffects gs
+        effects = generateAllAfterEffects (activeCards gs)
         cardsToDraw = sumDrawCards effects
 
 -- returns (Placed a card, card changes game direction, (Player, GameState))
 placeCardIfPossible :: Player -> GameState -> Writer [LogMessage] (Bool, Bool, (Player, GameState))
-placeCardIfPossible pl gs =  case selectedCard of
+placeCardIfPossible pl gs = case selectedCard of
     Just card -> do
         (newPl, newGs) <- placesCard pl card gs
         return (True, isChangingDirection card, (newPl, newGs))
@@ -130,3 +139,8 @@ placeCardIfPossible pl gs =  case selectedCard of
         selectedCard = choose pl (cards pl) (topCardPlacement gs)
 
 -- function trace is good for debugging (like print)
+
+addResponseToActive :: GameState -> Player -> Card -> Writer [LogMessage] (GameState, Player)
+addResponseToActive gs pl card = do
+    (newPl, newGs) <- placesCard pl card gs
+    return (newGs, newPl)

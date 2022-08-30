@@ -4,7 +4,7 @@ import Data.MultiSet (MultiSet, member)
 import qualified Data.MultiSet as MultiSet
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
-import Card(Card (..), Color, hasNonBlackColor, cardColor, cardNumber)
+import Card(Card (..), Color, hasNonBlackColor, cardColor, cardNumber, isValidResponse)
 import Player (PlayerId, Player (..))
 import GameLog (LogMessage(..))
 import Data.Maybe (isNothing, isJust, fromJust)
@@ -14,6 +14,7 @@ import Control.Monad.State ( evalState, State, runState )
 import Control.Monad.Except (throwError, ExceptT, runExceptT)
 import Control.Monad.State.Lazy ( get, put )
 import Control.Monad.State.Lazy (modify)
+import Debug.Trace (traceM)
 
 newtype Hand = Hand (MultiSet Card)
 
@@ -41,7 +42,8 @@ data LogState = LogState
     waitingForReversal :: Bool,
     needsToBeReversed :: Bool,
     orderOfPlayers :: [PlayerId],
-    previousPlacement :: PreviousPlacement
+    previousPlacement :: PreviousPlacement,
+    cardHistory :: [Card]
     }
 
 instance Show LogState where
@@ -76,7 +78,12 @@ createInitialLogState playerOrder =
     orderOfPlayers = playerOrder,
     waitingForReversal = False,
     needsToBeReversed = False,
-    previousPlacement = NotSelectedColor}
+    previousPlacement = NotSelectedColor,
+    cardHistory = []
+    }
+
+extendCardHistory :: Card -> LogState -> LogState
+extendCardHistory card logState = logState{cardHistory = card : cardHistory logState}
 
 addSkipping :: Card -> ExceptT [Char] (State LogState) ()
 addSkipping  card = do
@@ -90,9 +97,10 @@ addSkipping  card = do
 addDrawing :: Card -> ExceptT [Char] (State LogState) ()
 addDrawing card = do
     logState <- get
+    let prevDraws = maybe 0 snd (hasToDraw logState)
     case card of
-        PlusTwo _ -> put logState{hasToDraw = Just (getNextPlayer logState, 2)}
-        PlusFour -> put logState{hasToDraw = Just (getNextPlayer logState, 4)}
+        PlusTwo _ -> put logState{hasToDraw = Just (getNextPlayer logState, prevDraws + 2)}
+        PlusFour -> put logState{hasToDraw = Just (getNextPlayer logState, prevDraws + 4)}
         _ -> return ()
 
 addColorChange :: Card -> ExceptT [Char] (State LogState) ()
@@ -147,7 +155,7 @@ drewRequiredCards = do
     let (pl, cardCount) = fromJust $ hasToDraw logState
     if isNothing (hasToDraw logState) || pl /= getCurrentPlayer logState || cardCount == 0
         then return True
-        else throwError didNotDrewCards
+        else throwError (didNotDrewCards ++ " there are " ++ show cardCount ++ " left")
 
 checkFinalStateCorrectness :: ExceptT [Char] (State LogState) Bool
 checkFinalStateCorrectness = do
@@ -187,17 +195,17 @@ endOfTurnStateUpdate plId = do
     drewRequiredCards
     logState <- get
     when (hasToSkip logState == Just plId) (put logState{hasToSkip = Nothing})
-    
+
     logState <- get
     when (isJust (hasToDraw logState) && (fst . fromJust) (hasToDraw logState) == plId) (put logState{hasToDraw = Nothing})
-    
+
     logState <- get
     when (needsToBeReversed logState) (put logState{needsToBeReversed = False, orderOfPlayers =  head (orderOfPlayers logState) : reverse (tail $ orderOfPlayers logState) })
     modify rotatePlayerOrder
 
     logState <- get
     when (waitingForReversal logState) (throwError orderWasNotRotated)
-    when (previousPlacement logState == NotSelectedColor) (throwError colorNotSelected)
+    when (previousPlacement logState == NotSelectedColor) (throwError colorNotSelected) -- sitas galimai gadins
 
 updateRemainingDraws :: PlayerId ->  ExceptT [Char] (State LogState) LogState
 updateRemainingDraws plId = do
@@ -213,6 +221,12 @@ skippedPlayerDoesNotPlay :: PlayerId -> ExceptT [Char] (State LogState) ()
 skippedPlayerDoesNotPlay plId = do
     logState <- get
     when (hasToSkip logState == Just plId) (throwError skippedMadeTurn)
+
+isResponding :: PlayerId -> Card -> ExceptT [Char] (State LogState) Bool
+isResponding plId card = do
+    logState <- get
+    -- traceM ("he need to draw: " ++ show (hasToDraw logState))
+    return $ (hasToSkip logState == Just plId) && isValidResponse (head (cardHistory logState)) card
 
 checkLogFromState :: [LogMessage] -> ExceptT [Char] (State LogState) LogState
 checkLogFromState [] = do
@@ -241,11 +255,12 @@ checkLogFromState (DrewCard plId card : remLogs) = do
 checkLogFromState (PlacedCard plId card : remLogs) = do
     logStatePlayerIdMatches  plId
     playerHadCard plId card
-    skippedPlayerDoesNotPlay plId
-    logState <- get
+    isResp <- isResponding plId card
+    unless isResp (skippedPlayerDoesNotPlay plId)
     processCard card
     removeCardFromLogStateHand plId card
     updatePreviousPlacementFromCard card
+    modify (extendCardHistory card)
     checkLogFromState remLogs
 checkLogFromState (SkippedTurn plId : remLogs) = do
     logState <- get
@@ -267,6 +282,7 @@ checkLogFromState (ChangedColor plId col : remLogs) = do
     checkLogFromState remLogs
 checkLogFromState (InitialCard card : remLogs) = do
     logState <- get
+    modify (extendCardHistory card)
     put logState{previousPlacement = SimpleCard card}
     checkLogFromState remLogs
 checkLogFromState (ReversedDirection plId : remLogs) = do

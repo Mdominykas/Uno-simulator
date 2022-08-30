@@ -39,9 +39,14 @@ isChangingDirection (ReverseDirection _) = True
 isChangingDirection _ = False
 
 canPlace :: Card -> Card -> Bool
-canPlace deckCard playerCard = (cardColor deckCard == cardColor playerCard) 
-                    || (cardNumber deckCard == cardNumber playerCard)
-                    || (cardColor playerCard == Black)
+canPlace deckCard playerCard = 
+    (cardColor deckCard == cardColor playerCard) ||
+    (cardNumber deckCard == cardNumber playerCard) || 
+    (cardColor playerCard == Black)
+
+canBeResponded PlusFour = True
+canBeResponded (PlusTwo _) = True
+canBeResponded _ = False
 
 generateDeck :: [Card]
 generateDeck = numberedCards ++ plusTwoCards ++ skipCards ++ reverseDirecionCards ++ changeColourCards ++ plus4Cards
@@ -56,3 +61,7 @@ generateDeck = numberedCards ++ plusTwoCards ++ skipCards ++ reverseDirecionCard
 
 newDeck :: StdGen -> ([Card], StdGen)
 newDeck = shuffle generateDeck
+
+isValidResponse PlusFour PlusFour = True
+isValidResponse (PlusTwo _) (PlusTwo _) = True
+isValidResponse _ _ = False
