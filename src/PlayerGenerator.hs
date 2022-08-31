@@ -4,6 +4,7 @@ import PlayingStrategies.PrimitivePlayer (chooseFirstMatching, chooseFirstColorO
 import PlayingStrategies.NastyPlayer (nastyChooseCol, nastyChooseCard, nastyRespondToActive)
 import PlayingStrategies.SavingBlackCards (savingChooseMatching)
 import PlayingStrategies.PlayingCardsInColorOrder (colorOrderChoose)
+import PlayingStrategies.ChoosingMostCommonColor (chooseMostFrequentColor)
 
 generatePrimitivePlayer :: PlayerId -> Player
 generatePrimitivePlayer id1 = Player{playerId = id1, cards = [], choose = chooseFirstMatching, chooseColor = chooseFirstColorOrYellow, respondToActive = alwaysRespondToActive}
@@ -16,6 +17,9 @@ generateSavingBlackCardPlayer id1 = Player{playerId = id1, cards = [], choose = 
 
 generateColorOrderPlayer :: PlayerId -> Player
 generateColorOrderPlayer id1 = Player{playerId = id1, cards = [], choose = colorOrderChoose, chooseColor = chooseFirstColorOrYellow, respondToActive = alwaysRespondToActive}
+
+generatePlayerChoosingMostFrequentColor :: PlayerId -> Player
+generatePlayerChoosingMostFrequentColor id1 = Player{playerId = id1, cards = [], choose = colorOrderChoose, chooseColor = chooseMostFrequentColor, respondToActive = alwaysRespondToActive}
 
 
 
@@ -30,3 +34,6 @@ generateAllPrimitiveOneSaving count = generatePrimitivePlayers (count - 1) ++ [g
 
 generateAllPrimiteOneColorOrdering :: Int -> [Player]
 generateAllPrimiteOneColorOrdering count = generatePrimitivePlayers (count - 1) ++ [generateColorOrderPlayer (count - 1)]
+
+generateAllPrimitiveOneChoosingFreqColor :: Int -> [Player]
+generateAllPrimitiveOneChoosingFreqColor count = generatePrimitivePlayers (count - 1) ++ [generatePlayerChoosingMostFrequentColor (count - 1)]

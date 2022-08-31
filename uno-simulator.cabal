@@ -35,6 +35,7 @@ library
       LogChecker
       Player
       PlayerGenerator
+      PlayingStrategies.ChoosingMostCommonColor
       PlayingStrategies.NastyPlayer
       PlayingStrategies.PlayingCardsInColorOrder
       PlayingStrategies.PrimitivePlayer
