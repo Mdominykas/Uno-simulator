@@ -13,3 +13,5 @@ Repository for simulations of game Uno, written in Haskell.
 [Does playing cards in arbitrary order increase probability of victory?](https://github.com/Mdominykas/Uno-simulator/tree/color-order-layer)
 
 [How choosing color of which one has the most cards affect chances at winning?](https://github.com/Mdominykas/Uno-simulator/tree/most-com-col-strat)
+
+[Unexpected result](https://github.com/Mdominykas/Uno-simulator/tree/unexpected-result)
