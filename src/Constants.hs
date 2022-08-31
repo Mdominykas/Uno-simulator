@@ -4,7 +4,7 @@ startingNumberOfCards :: Int
 startingNumberOfCards = 7
 
 numberOfPlayers :: Int
-numberOfPlayers = 4
+numberOfPlayers = 7
 
 skipTurnCardCount :: Int
 skipTurnCardCount = 2

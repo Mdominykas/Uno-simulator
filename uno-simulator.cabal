@@ -37,6 +37,7 @@ library
       PlayerGenerator
       PlayingStrategies.NastyPlayer
       PlayingStrategies.PrimitivePlayer
+      PlayingStrategies.SavingBlackCards
       Utils
   other-modules:
       Paths_uno_simulator
