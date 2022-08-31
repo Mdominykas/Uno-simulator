@@ -1,13 +1,20 @@
-# Uno-simulator
-Repository for simulations of game Uno, written in Haskell.
+# Rules #
+* Traditional Uno rules
+* All players choose newest card that can be placed.
+* Every Player chooses first colour that they find (or yellow) when they change colour, except the last one, which chooses most frequent
 
-# Performed experiments
-[How much more first wins with random cards](https://github.com/Mdominykas/Uno-simulator/tree/benefit-of-starting-first)
+# Results
 
-[How much more first wins with random deck](https://github.com/Mdominykas/Uno-simulator/tree/calculations-from-game-state)
+Player | 1 | 2 | 3 | 4
+-|- | - | - | -
+Number of wins | 24.97% | 24.57% | 24.20% | 26.26%
+Win percentage | 342567 | 337044 | 332064 | 360325
 
-[How similar are results after many experiments?](https://github.com/Mdominykas/Uno-simulator/tree/games-until-equalibrium)
+95% confidence intervals for 4th player [0.2619, 0.2634] 
 
-[Does saving change color and plus four cards till the end increase chance at victory?](https://github.com/Mdominykas/Uno-simulator/tree/save-valuable-cards)
+Player | 1 | 2 | 3 | 4 | 5 | 6 | 7
+-|- | - | - | - | - | - | - |
+Number of wins | 304420 | 298134 | 297672 | 297326 | 296215 | 295008 | 339225
+Win percentage | 14.31% | 14.01% | 13.99% | 13.97% | 13.92% | 13.86% | 15.94%
 
-[Does playing cards in arbitrary order increase probability of victory?](https://github.com/Mdominykas/Uno-simulator/tree/color-order-layer)
+Choosing color, of which you have most cards increase chance at winning
