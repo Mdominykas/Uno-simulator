@@ -15,4 +15,4 @@ Player | 1 | 2 | 3 | 4 | 5 | 6 | 7
 Number of wins | 67570 | 65699 | 65470 | 65512 | 65735 | 65157 | 77857
 Win percentage | 14.29% | 13.89% | 13.84% | 13.85% | 13.90% | 13.78% | 16.46%
 
-Results 
+Results do not show any benefit of using this strategy over one, where player places black cards only at the end. However, that strategy is already part of this one.
