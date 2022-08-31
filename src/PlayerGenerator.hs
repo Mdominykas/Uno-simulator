@@ -21,6 +21,8 @@ generateColorOrderPlayer id1 = Player{playerId = id1, cards = [], choose = color
 generatePlayerChoosingMostFrequentColor :: PlayerId -> Player
 generatePlayerChoosingMostFrequentColor id1 = Player{playerId = id1, cards = [], choose = colorOrderChoose, chooseColor = chooseMostFrequentColor, respondToActive = alwaysRespondToActive}
 
+generateGoodPlayer :: PlayerId -> Player
+generateGoodPlayer id1 = Player{playerId = id1, cards = [], choose = savingChooseMatching, chooseColor = chooseMostFrequentColor, respondToActive = alwaysRespondToActive}
 
 
 generatePrimitivePlayers :: Int -> [Player]
@@ -37,3 +39,6 @@ generateAllPrimiteOneColorOrdering count = generatePrimitivePlayers (count - 1) 
 
 generateAllPrimitiveOneChoosingFreqColor :: Int -> [Player]
 generateAllPrimitiveOneChoosingFreqColor count = generatePrimitivePlayers (count - 1) ++ [generatePlayerChoosingMostFrequentColor (count - 1)]
+
+generateAllPrimitiveOneGood :: Int -> [Player]
+generateAllPrimitiveOneGood count = generatePrimitivePlayers (count - 1) ++ [generateGoodPlayer (count - 1)]

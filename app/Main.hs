@@ -17,8 +17,7 @@ import Numeric (showFFloat)
 import Control.Monad.State (State, MonadState (get, put))
 import Control.Monad.State.Lazy (evalState)
 import LogChecker (checkLogs, LogState (hands))
-import PlayerGenerator (generateAllPrimitiveOneSaving)
-import PlayerGenerator (generateAllPrimitiveOneSaving, generateAllPrimiteOneColorOrdering, generateAllPrimitiveOneChoosingFreqColor)
+import PlayerGenerator (generateAllPrimitiveOneSaving, generateAllPrimiteOneColorOrdering, generateAllPrimitiveOneChoosingFreqColor, generateAllPrimitiveOneGood)
 
 main :: IO ()
 main = do
@@ -49,7 +48,7 @@ findResults ch oldWinners = do
     when ((sum winners `mod` 1000) == 0) $ print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
     findResults ch winners
 
-createPlayers gameNum = rotate gameNum (generateAllPrimitiveOneChoosingFreqColor numberOfPlayers)
+createPlayers gameNum = rotate gameNum (generateAllPrimitiveOneGood numberOfPlayers)
 
 analyzeLogs i logs gameNum = do
     if i > length logs
