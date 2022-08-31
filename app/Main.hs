@@ -82,7 +82,7 @@ playGame ch gameNum = do
         Left msg -> error msg
         Right _ -> threadDelay 0
 
-    threadDelay 10 -- to slow down game playing
+    threadDelay 30 -- to slow down game playing
     playGame ch (gameNum + 1)
 
 oneGame gameNum = do

@@ -1,11 +1,18 @@
-# Uno-simulator
-Repository for simulations of game Uno, written in Haskell.
+# Rules #
+* Traditional Uno rules
+* All players choose newest card that can be placed, except the last player. 
+* Last player checks if he can place any red, green, blue, yellow, black cards that can be placed (in such order)
 
-# Performed experiments
-[How much more first wins with random cards](https://github.com/Mdominykas/Uno-simulator/tree/benefit-of-starting-first)
+# Results
 
-[How much more first wins with random deck](https://github.com/Mdominykas/Uno-simulator/tree/calculations-from-game-state)
+Player | 1 | 2 | 3 | 4
+-|- | - | - | -
+Number of wins | 158249 | 155538 | 153795 | 186418
+Win percentage | 24.20% | 23.78% | 23.52% | 28.50%
 
-[How similar are results after many experiments?](https://github.com/Mdominykas/Uno-simulator/tree/games-until-equalibrium)
+Player | 1 | 2 | 3 | 4 | 5 | 6 | 7
+-|- | - | - | - | - | - | - |
+Number of wins | 67570 | 65699 | 65470 | 65512 | 65735 | 65157 | 77857
+Win percentage | 14.29% | 13.89% | 13.84% | 13.85% | 13.90% | 13.78% | 16.46%
 
-[Does saving change color and plus four cards till the end increase chance at victory?](https://github.com/Mdominykas/Uno-simulator/tree/benefit-of-starting-first)
+Results 
