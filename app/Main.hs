@@ -18,6 +18,7 @@ import Control.Monad.State (State, MonadState (get, put))
 import Control.Monad.State.Lazy (evalState)
 import LogChecker (checkLogs, LogState (hands))
 import PlayerGenerator (generateAllPrimitiveOneSaving)
+import PlayerGenerator (generateAllPrimiteOneColorOrdering)
 
 main :: IO ()
 main = do
@@ -48,7 +49,7 @@ findResults ch oldWinners = do
     when ((sum winners `mod` 1000) == 0) $ print (intsAsTableRow winners) >> print (floatsAsPercentageInTableRow $ findPercentage winners)
     findResults ch winners
 
-createPlayers gameNum = rotate gameNum (generateAllPrimitiveOneSaving numberOfPlayers)
+createPlayers gameNum = rotate gameNum (generateAllPrimiteOneColorOrdering numberOfPlayers)
 
 analyzeLogs i logs gameNum = do
     if i > length logs
@@ -81,7 +82,7 @@ playGame ch gameNum = do
         Left msg -> error msg
         Right _ -> threadDelay 0
 
-    threadDelay 20 -- to slow down game playing
+    threadDelay 10 -- to slow down game playing
     playGame ch (gameNum + 1)
 
 oneGame gameNum = do

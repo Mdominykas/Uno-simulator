@@ -23,21 +23,3 @@ savingChooseMatching cards topPlacedCard
       changeColorCards = takeChangeColors cards
       plusFourCards = takePlusFours cards
       nonBlackCards = [card | card <- cards, hasNonBlackColor card, placementFits topPlacedCard card]
-
-chooseFirstColorOrYellow :: [Card] -> Color
-chooseFirstColorOrYellow cardList
-    | null cardList = Yellow
-    | cardColor (head cardList) == Black = chooseFirstColorOrYellow (tail cardList)
-    | otherwise = cardColor (head cardList)
-
-alwaysRespondToActive :: [Card] -> Card -> Maybe Card
-alwaysRespondToActive [] activeCard = Nothing
-alwaysRespondToActive cards PlusFour =
-    if head cards == PlusFour
-        then Just PlusFour
-        else alwaysRespondToActive (tail cards) PlusFour
-alwaysRespondToActive cards (PlusTwo col) =
-    case head cards of
-        (PlusTwo col) -> Just (PlusTwo col)
-        _ -> alwaysRespondToActive (tail cards) (PlusTwo col)
-alwaysRespondToActive (_ : remCards) card = alwaysRespondToActive remCards card

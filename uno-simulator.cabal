@@ -36,6 +36,7 @@ library
       Player
       PlayerGenerator
       PlayingStrategies.NastyPlayer
+      PlayingStrategies.PlayingCardsInColorOrder
       PlayingStrategies.PrimitivePlayer
       PlayingStrategies.SavingBlackCards
       Utils
